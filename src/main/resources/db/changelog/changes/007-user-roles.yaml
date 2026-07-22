@@ -1,0 +1,26 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-user-roles
+      author: foodmate
+      changes:
+        - addColumn:
+            tableName: users
+            columns:
+              - column:
+                  name: role
+                  type: VARCHAR(20)
+                  defaultValue: VIEWER
+                  constraints:
+                    nullable: false
+              - column:
+                  name: active
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: |
+              INSERT INTO users (telegram_id, display_name, role, active, created_at, updated_at)
+              VALUES (507017370, NULL, 'VIEWER', TRUE, NOW(), NOW())
+              ON CONFLICT (telegram_id) DO UPDATE
+              SET role = 'VIEWER', active = TRUE, updated_at = NOW();

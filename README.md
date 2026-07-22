@@ -61,7 +61,7 @@ mvn spring-boot:run
 | Переменная | Описание |
 |---|---|
 | `BOT_TOKEN` | Токен от [@BotFather](https://t.me/BotFather) |
-| `BOT_WHITELIST_IDS` | Telegram user ID через запятую. Пусто = пускает всех |
+| `BOT_SUPER_ADMIN_IDS` | Telegram ID суперадминов (полный доступ + настройки пользователей) |
 | `SPRING_DATASOURCE_URL` | JDBC URL (в Docker: `jdbc:postgresql://postgres:5432/menu_bot`) |
 | `SPRING_DATASOURCE_USERNAME` / `PASSWORD` | Креды БД |
 | `BOT_RECENT_DAYS` | Не рекомендовать блюда за N дней (по умолчанию 3) |

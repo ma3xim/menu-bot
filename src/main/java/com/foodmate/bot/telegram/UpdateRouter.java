@@ -43,6 +43,7 @@ import org.springframework.util.StringUtils;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 
 @Component
 @RequiredArgsConstructor
@@ -66,6 +67,7 @@ public class UpdateRouter {
     private final GroupNotifyService groupNotifyService;
     private final PendingCommentService pendingCommentService;
     private final PendingShoppingService pendingShoppingService;
+    private final PendingAddUserService pendingAddUserService;
     private final StatsService statsService;
     private final DishOfTheDayService dishOfTheDayService;
     private final BotProperties botProperties;
@@ -123,40 +125,42 @@ public class UpdateRouter {
         if (message.hasText()) {
             String text = message.getText().trim();
             if (text.startsWith("/start")) {
-                fsmService.clear(telegramId);
-                pendingCommentService.clear(telegramId);
-                pendingShoppingService.clear(telegramId);
-                sender.sendText(chatId, "Привет! Я FoodMate — помогу выбрать блюдо на день.", KeyboardFactory.mainMenu());
+                clearPending(telegramId);
+                sender.sendText(chatId, "Привет! Я FoodMate — помогу выбрать блюдо на день.", mainMenuFor(telegramId));
                 return;
             }
             if (text.startsWith("/menu")) {
-                fsmService.clear(telegramId);
-                pendingCommentService.clear(telegramId);
-                pendingShoppingService.clear(telegramId);
-                sender.sendText(chatId, "Главное меню:", KeyboardFactory.mainMenu());
+                clearPending(telegramId);
+                sender.sendText(chatId, "Главное меню:", mainMenuFor(telegramId));
                 return;
             }
             if (text.startsWith("/cancel")) {
-                fsmService.clear(telegramId);
-                pendingCommentService.clear(telegramId);
-                pendingShoppingService.clear(telegramId);
-                sender.sendText(chatId, "Отменено.", KeyboardFactory.mainMenu());
+                clearPending(telegramId);
+                sender.sendText(chatId, "Отменено.", mainMenuFor(telegramId));
+                return;
+            }
+
+            if (pendingAddUserService.isWaiting(telegramId)) {
+                handleAddUserInput(chatId, telegramId, text);
                 return;
             }
 
             if (pendingCommentService.getHistoryId(telegramId).isPresent()) {
+                accessService.requireCanWrite(telegramId);
                 handleCommentInput(chatId, user, text);
                 return;
             }
 
             var shoppingMode = pendingShoppingService.getMode(telegramId);
             if (shoppingMode.isPresent()) {
+                accessService.requireCanWrite(telegramId);
                 handleShoppingInput(chatId, user, shoppingMode.get(), text);
                 return;
             }
 
             var sessionOpt = fsmService.get(telegramId);
             if (sessionOpt.isPresent()) {
+                accessService.requireCanWrite(telegramId);
                 handleFsmInput(chatId, user, sessionOpt.get(), text);
                 return;
             }
@@ -172,6 +176,7 @@ public class UpdateRouter {
 
         var sessionOpt = fsmService.get(telegramId);
         if (sessionOpt.isPresent() && sessionOpt.get().getState() == RecipeFsmState.WAIT_VIDEO) {
+            accessService.requireCanWrite(telegramId);
             if (attachVideoFromMessage(sessionOpt.get(), message)) {
                 goToConfirm(chatId, sessionOpt.get());
                 return;
@@ -180,7 +185,7 @@ public class UpdateRouter {
             return;
         }
 
-        sender.sendText(chatId, "Не понял команду. Откройте меню:", KeyboardFactory.mainMenu());
+        sender.sendText(chatId, "Не понял команду. Откройте меню:", mainMenuFor(telegramId));
     }
 
     private void handleCallback(CallbackQuery callback) {
@@ -193,17 +198,36 @@ public class UpdateRouter {
         sender.answerCallback(callback.getId(), "Ок");
 
         if (CallbackData.MENU_MAIN.equals(data)) {
-            fsmService.clear(telegramId);
-            pendingCommentService.clear(telegramId);
-            pendingShoppingService.clear(telegramId);
-            sender.editText(chatId, messageId, "Главное меню:", KeyboardFactory.mainMenu());
+            clearPending(telegramId);
+            sender.editText(chatId, messageId, "Главное меню:", mainMenuFor(telegramId));
             return;
         }
         if (CallbackData.DISH_RANDOM.equals(data)) {
             showRandom(chatId, messageId, user, null);
             return;
         }
+        if (CallbackData.SETTINGS.equals(data)) {
+            accessService.requireSuper(telegramId);
+            showSettings(chatId, messageId);
+            return;
+        }
+        if (CallbackData.SETTINGS_ADD.equals(data)) {
+            accessService.requireSuper(telegramId);
+            pendingAddUserService.start(telegramId);
+            sender.editText(chatId, messageId,
+                    "Пришлите Telegram ID пользователя для доступа (только просмотр).\nОтмена: /cancel",
+                    KeyboardFactory.backToMenu());
+            return;
+        }
+        if (data.startsWith("settings:remove:")) {
+            accessService.requireSuper(telegramId);
+            Long targetId = Long.parseLong(data.substring("settings:remove:".length()));
+            userService.deactivateViewer(targetId);
+            showSettings(chatId, messageId);
+            return;
+        }
         if (CallbackData.RECIPE_ADD.equals(data)) {
+            accessService.requireCanWrite(telegramId);
             fsmService.startAdd(telegramId);
             sender.editText(chatId, messageId, "Добавление рецепта.\nВведите название:", KeyboardFactory.backToMenu());
             return;
@@ -214,6 +238,7 @@ public class UpdateRouter {
             return;
         }
         if (data.startsWith("list:fav")) {
+            accessService.requireCanWrite(telegramId);
             int page = parsePage(data, "list:fav");
             showFavorites(chatId, messageId, user, page);
             return;
@@ -251,14 +276,22 @@ public class UpdateRouter {
             return;
         }
         if (data.startsWith("dish:day:")) {
+            accessService.requireCanWrite(telegramId);
             Long recipeId = Long.parseLong(data.substring("dish:day:".length()));
             var entry = dishOfTheDayService.setDishOfTheDay(recipeId, user);
             sender.editText(chatId, messageId,
                     "📌 «" + entry.getRecipe().getName() + "» закреплено как блюдо дня в группе.",
-                    KeyboardFactory.recipeActions(recipeId, favoriteService.isFavorite(user.getId(), recipeId)));
-            // Always announce in group (pin message already there; if action was in DM, also notify)
+                    recipeActionsFor(user, recipeId));
             groupNotifyService.notify(who(user) + " выбрал(а) блюдо дня: «" + entry.getRecipe().getName() + "»");
             return;
+        }
+        if (CallbackData.SHOP_ALL.equals(data)
+                || CallbackData.SHOP_MANUAL_ADD.equals(data)
+                || CallbackData.SHOP_EDIT.equals(data)
+                || CallbackData.SHOP_CLEAR.equals(data)
+                || CallbackData.SHOP_CLEAR_OK.equals(data)
+                || data.startsWith("shop:add:")) {
+            accessService.requireCanWrite(telegramId);
         }
         if (CallbackData.SHOP_ALL.equals(data)) {
             pendingShoppingService.clear(telegramId);
@@ -320,11 +353,13 @@ public class UpdateRouter {
             return;
         }
         if (CallbackData.ADD_CANCEL.equals(data)) {
+            accessService.requireCanWrite(telegramId);
             fsmService.clear(telegramId);
-            sender.editText(chatId, messageId, "Отменено.", KeyboardFactory.mainMenu());
+            sender.editText(chatId, messageId, "Отменено.", mainMenuFor(telegramId));
             return;
         }
         if (CallbackData.ADD_CONFIRM.equals(data)) {
+            accessService.requireCanWrite(telegramId);
             confirmFsm(chatId, messageId, user);
             return;
         }
@@ -338,6 +373,14 @@ public class UpdateRouter {
             int page = parts.length > 3 ? Integer.parseInt(parts[3]) : 0;
             showRecipeReviews(chatId, messageId, recipeId, page);
             return;
+        }
+        if (data.startsWith("recipe:cooked:")
+                || data.startsWith("recipe:rate:")
+                || data.startsWith("recipe:skiprate:")
+                || data.startsWith("recipe:fav:")
+                || data.startsWith("recipe:edit:")
+                || data.startsWith("recipe:del")) {
+            accessService.requireCanWrite(telegramId);
         }
         if (data.startsWith("recipe:cooked:")) {
             Long recipeId = Long.parseLong(data.substring("recipe:cooked:".length()));
@@ -393,7 +436,7 @@ public class UpdateRouter {
         if (data.startsWith("recipe:delok:")) {
             Long recipeId = Long.parseLong(data.substring("recipe:delok:".length()));
             recipeService.delete(recipeId);
-            sender.editText(chatId, messageId, "Рецепт удалён.", KeyboardFactory.mainMenu());
+            sender.editText(chatId, messageId, "Рецепт удалён.", mainMenuFor(telegramId));
             return;
         }
         if (data.startsWith("recipe:del:")) {
@@ -407,12 +450,12 @@ public class UpdateRouter {
                 .orElseThrow(() -> new BotBusinessException("Нет ожидания комментария"));
         pendingCommentService.clear(user.getTelegramId());
         if ("-".equals(text.trim())) {
-            sender.sendText(chatId, "Ок, без комментария.", KeyboardFactory.mainMenu());
+            sender.sendText(chatId, "Ок, без комментария.", mainMenuFor(user.getTelegramId()));
             return;
         }
         CookingHistory history = cookingHistoryService.addComment(historyId, text.trim());
         Recipe recipe = recipeService.getDetailed(history.getRecipe().getId());
-        sender.sendText(chatId, "Комментарий сохранён.", KeyboardFactory.mainMenu());
+        sender.sendText(chatId, "Комментарий сохранён.", mainMenuFor(user.getTelegramId()));
         groupNotifyService.notify(who(user) + " оставил(а) отзыв к «" + recipe.getName() + "»: " + truncate(text.trim(), 120));
     }
 
@@ -513,7 +556,7 @@ public class UpdateRouter {
             case CONFIRM -> sender.sendText(chatId, "Нажмите «Сохранить» или «Отмена».", KeyboardFactory.confirmAdd());
             default -> {
                 fsmService.clear(user.getTelegramId());
-                sender.sendText(chatId, "Сессия сброшена.", KeyboardFactory.mainMenu());
+                sender.sendText(chatId, "Сессия сброшена.", mainMenuFor(user.getTelegramId()));
             }
         }
     }
@@ -570,7 +613,7 @@ public class UpdateRouter {
         boolean fav = favoriteService.isFavorite(user.getId(), recipe.getId());
         Recipe detailed = recipeService.getDetailed(recipe.getId());
         sender.editText(chatId, messageId, RecipeFormatter.formatCard(detailed, fav),
-                KeyboardFactory.recipeActions(detailed.getId(), fav));
+                recipeActionsFor(user, detailed.getId()));
         sendRecipeVideoIfAny(chatId, detailed);
         boolean edited = session.getEditingRecipeId() != null;
         groupNotifyService.notify(who(user) + (edited ? " обновил(а) рецепт «" : " добавил(а) новый рецепт «")
@@ -582,7 +625,7 @@ public class UpdateRouter {
         Recipe recipe = recipeService.getDetailed(picked.getId());
         boolean fav = favoriteService.isFavorite(user.getId(), recipe.getId());
         sender.editText(chatId, messageId, RecipeFormatter.formatCard(recipe, fav),
-                KeyboardFactory.recipeActions(recipe.getId(), fav));
+                recipeActionsFor(user, recipe.getId()));
         sendRecipeVideoIfAny(chatId, recipe);
     }
 
@@ -590,7 +633,7 @@ public class UpdateRouter {
         Recipe recipe = recipeService.getDetailed(recipeId);
         boolean fav = favoriteService.isFavorite(user.getId(), recipe.getId());
         sender.editText(chatId, messageId, RecipeFormatter.formatCard(recipe, fav),
-                KeyboardFactory.recipeActions(recipe.getId(), fav));
+                recipeActionsFor(user, recipe.getId()));
         if (withVideo) {
             sendRecipeVideoIfAny(chatId, recipe);
         }
@@ -774,6 +817,70 @@ public class UpdateRouter {
             return Integer.parseInt(suffix.substring(1));
         }
         return 0;
+    }
+
+    private void handleAddUserInput(Long chatId, Long adminTelegramId, String text) {
+        pendingAddUserService.clear(adminTelegramId);
+        Long targetId;
+        try {
+            targetId = Long.parseLong(text.trim());
+        } catch (NumberFormatException e) {
+            sender.sendText(chatId, "Нужен числовой Telegram ID.", mainMenuFor(adminTelegramId));
+            return;
+        }
+        User added = userService.addViewer(targetId);
+        List<User> viewers = userService.listActiveViewers();
+        List<Long> ids = new ArrayList<>();
+        List<String> labels = new ArrayList<>();
+        for (User viewer : viewers) {
+            ids.add(viewer.getTelegramId());
+            String label = viewer.getTelegramId()
+                    + (StringUtils.hasText(viewer.getDisplayName()) ? " · " + viewer.getDisplayName() : "");
+            labels.add(truncate(label, 40));
+        }
+        sender.sendText(chatId,
+                "Доступ выдан: " + added.getTelegramId() + " (просмотр).\n\nНастройки:",
+                KeyboardFactory.settings(ids, labels));
+    }
+
+    private void showSettings(Long chatId, Integer messageId) {
+        List<User> viewers = userService.listActiveViewers();
+        List<Long> ids = new ArrayList<>();
+        List<String> labels = new ArrayList<>();
+        StringBuilder sb = new StringBuilder("⚙️ Настройки доступа\n\nСуперадмины:\n");
+        for (Long id : botProperties.getSuperAdminIds()) {
+            sb.append("• ").append(id).append(" (SUPER)\n");
+        }
+        sb.append("\nПользователи с просмотром:\n");
+        if (viewers.isEmpty()) {
+            sb.append("пока никого\n");
+        } else {
+            for (User viewer : viewers) {
+                ids.add(viewer.getTelegramId());
+                String label = viewer.getTelegramId()
+                        + (StringUtils.hasText(viewer.getDisplayName()) ? " · " + viewer.getDisplayName() : "");
+                labels.add(truncate(label, 40));
+                sb.append("• ").append(label).append('\n');
+            }
+        }
+        sb.append("\nНажмите на пользователя, чтобы отключить доступ.");
+        sender.editText(chatId, messageId, sb.toString(), KeyboardFactory.settings(ids, labels));
+    }
+
+    private void clearPending(Long telegramId) {
+        fsmService.clear(telegramId);
+        pendingCommentService.clear(telegramId);
+        pendingShoppingService.clear(telegramId);
+        pendingAddUserService.clear(telegramId);
+    }
+
+    private InlineKeyboardMarkup mainMenuFor(Long telegramId) {
+        return KeyboardFactory.mainMenu(accessService.isSuper(telegramId));
+    }
+
+    private InlineKeyboardMarkup recipeActionsFor(User user, Long recipeId) {
+        boolean fav = favoriteService.isFavorite(user.getId(), recipeId);
+        return KeyboardFactory.recipeActions(recipeId, fav, accessService.isSuper(user.getTelegramId()));
     }
 
     private String formatLocal(Instant instant) {

@@ -18,6 +18,8 @@ public final class CallbackData {
     public static final String STATS = "stats:show";
     public static final String ADD_CONFIRM = "add:confirm";
     public static final String ADD_CANCEL = "add:cancel";
+    public static final String SETTINGS = "settings:open";
+    public static final String SETTINGS_ADD = "settings:add";
 
     private CallbackData() {
     }
@@ -84,5 +86,9 @@ public final class CallbackData {
 
     public static String dishOfDay(long id) {
         return "dish:day:" + id;
+    }
+
+    public static String settingsRemove(long telegramId) {
+        return "settings:remove:" + telegramId;
     }
 }

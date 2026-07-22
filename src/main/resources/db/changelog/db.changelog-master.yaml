@@ -11,3 +11,5 @@ databaseChangeLog:
       file: db/changelog/changes/005-comments-and-dish-of-day.yaml
   - include:
       file: db/changelog/changes/006-bot-settings.yaml
+  - include:
+      file: db/changelog/changes/007-user-roles.yaml

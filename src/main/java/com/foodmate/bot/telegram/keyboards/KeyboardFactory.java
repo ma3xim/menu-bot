@@ -14,42 +14,74 @@ public final class KeyboardFactory {
     }
 
     public static InlineKeyboardMarkup mainMenu() {
+        return mainMenu(true);
+    }
+
+    public static InlineKeyboardMarkup mainMenu(boolean superUser) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
         rows.add(row(btn("🎲 Случайное блюдо", CallbackData.DISH_RANDOM)));
-        rows.add(row(
-                btn("📖 Рецепты", CallbackData.listRecipes(0)),
-                btn("➕ Добавить", CallbackData.RECIPE_ADD)
-        ));
-        rows.add(row(
-                btn("❤ Избранное", CallbackData.listFav(0)),
-                btn("🕘 История", CallbackData.listHist(0))
-        ));
+        if (superUser) {
+            rows.add(row(
+                    btn("📖 Рецепты", CallbackData.listRecipes(0)),
+                    btn("➕ Добавить", CallbackData.RECIPE_ADD)
+            ));
+            rows.add(row(
+                    btn("❤ Избранное", CallbackData.listFav(0)),
+                    btn("🕘 История", CallbackData.listHist(0))
+            ));
+        } else {
+            rows.add(row(btn("📖 Рецепты", CallbackData.listRecipes(0))));
+            rows.add(row(btn("🕘 История", CallbackData.listHist(0))));
+        }
         rows.add(row(
                 btn("🔍 Поиск", CallbackData.SEARCH),
                 btn("🏷 Фильтр", CallbackData.FILTER_TAGS)
         ));
-        rows.add(row(
-                btn("🛒 Покупки", CallbackData.SHOP_ALL),
-                btn("📊 Статистика", CallbackData.STATS)
-        ));
+        if (superUser) {
+            rows.add(row(
+                    btn("🛒 Покупки", CallbackData.SHOP_ALL),
+                    btn("📊 Статистика", CallbackData.STATS)
+            ));
+            rows.add(row(btn("⚙️ Настройки", CallbackData.SETTINGS)));
+        } else {
+            rows.add(row(btn("📊 Статистика", CallbackData.STATS)));
+        }
         return new InlineKeyboardMarkup(rows);
     }
 
     public static InlineKeyboardMarkup recipeActions(long recipeId, boolean favorite) {
+        return recipeActions(recipeId, favorite, true);
+    }
+
+    public static InlineKeyboardMarkup recipeActions(long recipeId, boolean favorite, boolean superUser) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
-        rows.add(row(
-                btn("⭐ Оценки и отзывы", CallbackData.recipeReviews(recipeId, 0)),
-                btn("✅ Приготовили", CallbackData.recipeCooked(recipeId))
-        ));
-        rows.add(row(
-                btn(favorite ? "💔 Убрать" : "❤ Любимое", CallbackData.recipeFav(recipeId)),
-                btn("✏️ Изменить", CallbackData.recipeEdit(recipeId))
-        ));
-        rows.add(row(
-                btn("🗑 Удалить", CallbackData.recipeDelete(recipeId)),
-                btn("🛒 В покупки", CallbackData.shopRecipe(recipeId))
-        ));
-        rows.add(row(btn("📌 Блюдо дня", CallbackData.dishOfDay(recipeId))));
+        if (superUser) {
+            rows.add(row(
+                    btn("⭐ Оценки и отзывы", CallbackData.recipeReviews(recipeId, 0)),
+                    btn("✅ Приготовили", CallbackData.recipeCooked(recipeId))
+            ));
+            rows.add(row(
+                    btn(favorite ? "💔 Убрать" : "❤ Любимое", CallbackData.recipeFav(recipeId)),
+                    btn("✏️ Изменить", CallbackData.recipeEdit(recipeId))
+            ));
+            rows.add(row(
+                    btn("🗑 Удалить", CallbackData.recipeDelete(recipeId)),
+                    btn("🛒 В покупки", CallbackData.shopRecipe(recipeId))
+            ));
+            rows.add(row(btn("📌 Блюдо дня", CallbackData.dishOfDay(recipeId))));
+        } else {
+            rows.add(row(btn("⭐ Оценки и отзывы", CallbackData.recipeReviews(recipeId, 0))));
+        }
+        rows.add(row(btn("⬅️ Меню", CallbackData.MENU_MAIN)));
+        return new InlineKeyboardMarkup(rows);
+    }
+
+    public static InlineKeyboardMarkup settings(List<Long> viewerTelegramIds, List<String> labels) {
+        List<InlineKeyboardRow> rows = new ArrayList<>();
+        rows.add(row(btn("➕ Добавить пользователя", CallbackData.SETTINGS_ADD)));
+        for (int i = 0; i < viewerTelegramIds.size(); i++) {
+            rows.add(row(btn("🗑 " + labels.get(i), CallbackData.settingsRemove(viewerTelegramIds.get(i)))));
+        }
         rows.add(row(btn("⬅️ Меню", CallbackData.MENU_MAIN)));
         return new InlineKeyboardMarkup(rows);
     }

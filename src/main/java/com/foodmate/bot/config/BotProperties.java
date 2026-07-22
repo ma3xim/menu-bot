@@ -10,7 +10,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class BotProperties {
 
     private String token = "CHANGE_ME";
-    private List<Long> whitelistIds = new ArrayList<>();
+    /** Super-admin telegram IDs (full access + user management). */
+    private List<Long> superAdminIds = new ArrayList<>();
     private int recentDays = 3;
     /** Family group chat id (e.g. -100...). Optional — can be learned from first group message. */
     private Long notifyChatId;
