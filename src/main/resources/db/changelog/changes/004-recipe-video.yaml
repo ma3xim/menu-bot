@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-recipe-video
+      author: foodmate
+      changes:
+        - addColumn:
+            tableName: recipes
+            columns:
+              - column:
+                  name: video_file_id
+                  type: VARCHAR(255)
+              - column:
+                  name: video_file_unique_id
+                  type: VARCHAR(255)
+              - column:
+                  name: video_kind
+                  type: VARCHAR(32)

@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - include:
+      file: db/changelog/changes/001-init-schema.yaml
+  - include:
+      file: db/changelog/changes/002-seed-data.yaml
+  - include:
+      file: db/changelog/changes/003-shopping-list.yaml
+  - include:
+      file: db/changelog/changes/004-recipe-video.yaml
+  - include:
+      file: db/changelog/changes/005-comments-and-dish-of-day.yaml

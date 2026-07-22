@@ -1,0 +1,45 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-shopping-list
+      author: foodmate
+      changes:
+        - createTable:
+            tableName: shopping_list_items
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: ingredient_name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: amount
+                  type: VARCHAR(100)
+              - column:
+                  name: unit
+                  type: VARCHAR(50)
+              - column:
+                  name: recipe_name
+                  type: VARCHAR(255)
+              - column:
+                  name: recipe_id
+                  type: BIGINT
+              - column:
+                  name: added_by_telegram_id
+                  type: BIGINT
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: shopping_list_items
+            indexName: idx_shopping_ingredient
+            columns:
+              - column:
+                  name: ingredient_name

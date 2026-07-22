@@ -1,0 +1,122 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-seed-data
+      author: foodmate
+      changes:
+        - insert:
+            tableName: tags
+            columns:
+              - column: { name: name, value: завтрак }
+        - insert:
+            tableName: tags
+            columns:
+              - column: { name: name, value: обед }
+        - insert:
+            tableName: tags
+            columns:
+              - column: { name: name, value: ужин }
+        - insert:
+            tableName: tags
+            columns:
+              - column: { name: name, value: быстро }
+        - insert:
+            tableName: tags
+            columns:
+              - column: { name: name, value: суп }
+
+        - insert:
+            tableName: ingredients
+            columns:
+              - column: { name: name, value: яйца }
+        - insert:
+            tableName: ingredients
+            columns:
+              - column: { name: name, value: молоко }
+        - insert:
+            tableName: ingredients
+            columns:
+              - column: { name: name, value: мука }
+        - insert:
+            tableName: ingredients
+            columns:
+              - column: { name: name, value: курица }
+        - insert:
+            tableName: ingredients
+            columns:
+              - column: { name: name, value: рис }
+        - insert:
+            tableName: ingredients
+            columns:
+              - column: { name: name, value: картофель }
+        - insert:
+            tableName: ingredients
+            columns:
+              - column: { name: name, value: лук }
+        - insert:
+            tableName: ingredients
+            columns:
+              - column: { name: name, value: морковь }
+
+        - insert:
+            tableName: recipes
+            columns:
+              - column: { name: name, value: Омлет }
+              - column: { name: description, value: Классический омлет на сковороде }
+              - column: { name: cooking_time_minutes, valueNumeric: 15 }
+              - column: { name: average_rating, valueNumeric: 0 }
+              - column: { name: ratings_count, valueNumeric: 0 }
+              - column: { name: created_at, valueComputed: NOW() }
+              - column: { name: updated_at, valueComputed: NOW() }
+        - insert:
+            tableName: recipes
+            columns:
+              - column: { name: name, value: Курица с рисом }
+              - column: { name: description, value: Запечённая курица с гарниром из риса }
+              - column: { name: cooking_time_minutes, valueNumeric: 45 }
+              - column: { name: average_rating, valueNumeric: 0 }
+              - column: { name: ratings_count, valueNumeric: 0 }
+              - column: { name: created_at, valueComputed: NOW() }
+              - column: { name: updated_at, valueComputed: NOW() }
+        - insert:
+            tableName: recipes
+            columns:
+              - column: { name: name, value: Картофельный суп }
+              - column: { name: description, value: Лёгкий суп с картофелем и овощами }
+              - column: { name: cooking_time_minutes, valueNumeric: 40 }
+              - column: { name: average_rating, valueNumeric: 0 }
+              - column: { name: ratings_count, valueNumeric: 0 }
+              - column: { name: created_at, valueComputed: NOW() }
+              - column: { name: updated_at, valueComputed: NOW() }
+
+        - sql:
+            sql: |
+              INSERT INTO recipe_ingredients (recipe_id, ingredient_id, amount, unit)
+              SELECT r.id, i.id, '3', 'шт'
+              FROM recipes r, ingredients i WHERE r.name = 'Омлет' AND i.name = 'яйца';
+              INSERT INTO recipe_ingredients (recipe_id, ingredient_id, amount, unit)
+              SELECT r.id, i.id, '50', 'мл'
+              FROM recipes r, ingredients i WHERE r.name = 'Омлет' AND i.name = 'молоко';
+
+              INSERT INTO recipe_ingredients (recipe_id, ingredient_id, amount, unit)
+              SELECT r.id, i.id, '500', 'г'
+              FROM recipes r, ingredients i WHERE r.name = 'Курица с рисом' AND i.name = 'курица';
+              INSERT INTO recipe_ingredients (recipe_id, ingredient_id, amount, unit)
+              SELECT r.id, i.id, '200', 'г'
+              FROM recipes r, ingredients i WHERE r.name = 'Курица с рисом' AND i.name = 'рис';
+
+              INSERT INTO recipe_ingredients (recipe_id, ingredient_id, amount, unit)
+              SELECT r.id, i.id, '3', 'шт'
+              FROM recipes r, ingredients i WHERE r.name = 'Картофельный суп' AND i.name = 'картофель';
+              INSERT INTO recipe_ingredients (recipe_id, ingredient_id, amount, unit)
+              SELECT r.id, i.id, '1', 'шт'
+              FROM recipes r, ingredients i WHERE r.name = 'Картофельный суп' AND i.name = 'лук';
+              INSERT INTO recipe_ingredients (recipe_id, ingredient_id, amount, unit)
+              SELECT r.id, i.id, '1', 'шт'
+              FROM recipes r, ingredients i WHERE r.name = 'Картофельный суп' AND i.name = 'морковь';
+
+              INSERT INTO recipe_tags (recipe_id, tag_id)
+              SELECT r.id, t.id FROM recipes r, tags t WHERE r.name = 'Омлет' AND t.name IN ('завтрак', 'быстро');
+              INSERT INTO recipe_tags (recipe_id, tag_id)
+              SELECT r.id, t.id FROM recipes r, tags t WHERE r.name = 'Курица с рисом' AND t.name IN ('обед', 'ужин');
+              INSERT INTO recipe_tags (recipe_id, tag_id)
+              SELECT r.id, t.id FROM recipes r, tags t WHERE r.name = 'Картофельный суп' AND t.name IN ('обед', 'суп');

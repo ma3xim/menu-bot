@@ -1,0 +1,57 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005-comments-and-dish-of-day
+      author: foodmate
+      changes:
+        - addColumn:
+            tableName: cooking_history
+            columns:
+              - column:
+                  name: comment
+                  type: TEXT
+        - createTable:
+            tableName: dish_of_the_day
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: recipe_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_dotd_recipe
+                    references: recipes(id)
+              - column:
+                  name: chat_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: thread_id
+                  type: INT
+              - column:
+                  name: message_id
+                  type: INT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: set_by_user_id
+                  type: BIGINT
+                  constraints:
+                    foreignKeyName: fk_dotd_user
+                    references: users(id)
+              - column:
+                  name: set_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: dish_of_the_day
+            indexName: idx_dotd_set_at
+            columns:
+              - column:
+                  name: set_at

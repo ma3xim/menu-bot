@@ -1,0 +1,268 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-init-schema
+      author: foodmate
+      changes:
+        - createTable:
+            tableName: users
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: telegram_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: display_name
+                  type: VARCHAR(255)
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+
+        - createTable:
+            tableName: recipes
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: TEXT
+              - column:
+                  name: cooking_time_minutes
+                  type: INT
+              - column:
+                  name: average_rating
+                  type: DOUBLE PRECISION
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ratings_count
+                  type: INT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by_id
+                  type: BIGINT
+                  constraints:
+                    foreignKeyName: fk_recipes_created_by
+                    references: users(id)
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+
+        - createIndex:
+            tableName: recipes
+            indexName: idx_recipes_name
+            columns:
+              - column:
+                  name: name
+
+        - createTable:
+            tableName: ingredients
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+
+        - createTable:
+            tableName: recipe_ingredients
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: recipe_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_ri_recipe
+                    references: recipes(id)
+                    deleteCascade: true
+              - column:
+                  name: ingredient_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_ri_ingredient
+                    references: ingredients(id)
+              - column:
+                  name: amount
+                  type: VARCHAR(100)
+              - column:
+                  name: unit
+                  type: VARCHAR(50)
+
+        - createIndex:
+            tableName: recipe_ingredients
+            indexName: idx_ri_recipe
+            columns:
+              - column:
+                  name: recipe_id
+
+        - createTable:
+            tableName: tags
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                    unique: true
+
+        - createTable:
+            tableName: recipe_tags
+            columns:
+              - column:
+                  name: recipe_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_rt_recipe
+                    references: recipes(id)
+                    deleteCascade: true
+              - column:
+                  name: tag_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_rt_tag
+                    references: tags(id)
+                    deleteCascade: true
+        - addPrimaryKey:
+            tableName: recipe_tags
+            columnNames: recipe_id, tag_id
+            constraintName: pk_recipe_tags
+
+        - createTable:
+            tableName: favorite_recipes
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_fav_user
+                    references: users(id)
+                    deleteCascade: true
+              - column:
+                  name: recipe_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_fav_recipe
+                    references: recipes(id)
+                    deleteCascade: true
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: favorite_recipes
+            columnNames: user_id, recipe_id
+            constraintName: uq_favorite_user_recipe
+
+        - createTable:
+            tableName: cooking_history
+            columns:
+              - column:
+                  name: id
+                  type: BIGSERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_ch_user
+                    references: users(id)
+                    deleteCascade: true
+              - column:
+                  name: recipe_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_ch_recipe
+                    references: recipes(id)
+                    deleteCascade: true
+              - column:
+                  name: cooked_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: rating
+                  type: INT
+        - createIndex:
+            tableName: cooking_history
+            indexName: idx_ch_user_cooked
+            columns:
+              - column:
+                  name: user_id
+              - column:
+                  name: cooked_at
+        - createIndex:
+            tableName: cooking_history
+            indexName: idx_ch_recipe_cooked
+            columns:
+              - column:
+                  name: recipe_id
+              - column:
+                  name: cooked_at

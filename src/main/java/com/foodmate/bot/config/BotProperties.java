@@ -1,0 +1,27 @@
+package com.foodmate.bot.config;
+
+import java.util.ArrayList;
+import java.util.List;
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+@Data
+@ConfigurationProperties(prefix = "bot")
+public class BotProperties {
+
+    private String token = "CHANGE_ME";
+    private List<Long> whitelistIds = new ArrayList<>();
+    private int recentDays = 3;
+    /** Family group chat id (e.g. -100...). Optional — can be learned from first group message. */
+    private Long notifyChatId;
+    /** Forum topic id inside the group. Optional — learned from group messages. */
+    private Integer notifyThreadId;
+    private Reminder reminder = new Reminder();
+
+    @Data
+    public static class Reminder {
+        private boolean enabled = true;
+        private String cron = "0 0 10 * * *";
+        private String timezone = "Asia/Vladivostok";
+    }
+}
