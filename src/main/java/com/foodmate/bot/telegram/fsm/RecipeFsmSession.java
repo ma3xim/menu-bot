@@ -14,6 +14,7 @@ public class RecipeFsmSession {
     private String description;
     private Integer cookingTimeMinutes;
     private List<IngredientLineDto> ingredients = new ArrayList<>();
+    private String cookingInstructions;
     private List<String> tags = new ArrayList<>();
     private String videoFileId;
     private String videoFileUniqueId;

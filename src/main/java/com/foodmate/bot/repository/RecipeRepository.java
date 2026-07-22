@@ -24,6 +24,7 @@ public interface RecipeRepository extends JpaRepository<Recipe, Long> {
             SELECT r FROM Recipe r
             WHERE LOWER(r.name) LIKE LOWER(CONCAT('%', :query, '%'))
                OR LOWER(COALESCE(r.description, '')) LIKE LOWER(CONCAT('%', :query, '%'))
+               OR LOWER(COALESCE(r.cookingInstructions, '')) LIKE LOWER(CONCAT('%', :query, '%'))
             ORDER BY r.name
             """)
     Page<Recipe> search(@Param("query") String query, Pageable pageable);

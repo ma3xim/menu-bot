@@ -219,11 +219,29 @@ public class UpdateRouter {
                     KeyboardFactory.backToMenu());
             return;
         }
+        if (data.startsWith("settings:removeok:")) {
+            accessService.requireSuper(telegramId);
+            Long targetId = Long.parseLong(data.substring("settings:removeok:".length()));
+            if (accessService.isSuper(targetId)) {
+                throw new BotBusinessException("Нельзя отключить суперадмина.");
+            }
+            userService.deactivateViewer(targetId);
+            showSettings(chatId, messageId);
+            return;
+        }
         if (data.startsWith("settings:remove:")) {
             accessService.requireSuper(telegramId);
             Long targetId = Long.parseLong(data.substring("settings:remove:".length()));
-            userService.deactivateViewer(targetId);
-            showSettings(chatId, messageId);
+            if (accessService.isSuper(targetId)) {
+                throw new BotBusinessException("Нельзя отключить суперадмина.");
+            }
+            User target = userService.requireByTelegramId(targetId);
+            String whoLabel = StringUtils.hasText(target.getDisplayName())
+                    ? target.getDisplayName() + " (" + targetId + ")"
+                    : String.valueOf(targetId);
+            sender.editText(chatId, messageId,
+                    "Удалить доступ у пользователя " + whoLabel + "?",
+                    KeyboardFactory.confirmRemoveAccess(targetId));
             return;
         }
         if (CallbackData.RECIPE_ADD.equals(data)) {
@@ -514,8 +532,10 @@ public class UpdateRouter {
             }
             case WAIT_INGREDIENTS -> {
                 if ("-".equals(text.trim())) {
-                    session.setState(RecipeFsmState.WAIT_TAGS);
-                    sender.sendText(chatId, "Введите теги через запятую (или '-'):");
+                    session.setState(RecipeFsmState.WAIT_INSTRUCTIONS);
+                    sender.sendText(chatId, """
+                            Введите способ приготовления.
+                            Или '-' чтобы пропустить (например, если всё есть в видео).""");
                     return;
                 }
                 IngredientLineDto line = parseIngredientLine(text);
@@ -525,6 +545,11 @@ public class UpdateRouter {
                 }
                 session.getIngredients().add(line);
                 sender.sendText(chatId, "Добавлено. Ещё ингредиент или '-' для продолжения.");
+            }
+            case WAIT_INSTRUCTIONS -> {
+                session.setCookingInstructions("-".equals(text.trim()) ? null : text.trim());
+                session.setState(RecipeFsmState.WAIT_TAGS);
+                sender.sendText(chatId, "Введите теги через запятую (или '-'):");
             }
             case WAIT_TAGS -> {
                 if (!"-".equals(text.trim())) {
@@ -598,6 +623,7 @@ public class UpdateRouter {
                 session.getDescription(),
                 session.getCookingTimeMinutes(),
                 session.getIngredients(),
+                session.getCookingInstructions(),
                 session.getTags(),
                 session.getVideoFileId(),
                 session.getVideoFileUniqueId(),
@@ -796,6 +822,9 @@ public class UpdateRouter {
                             .append(i.amount() == null ? "" : " " + i.amount())
                             .append(i.unit() == null ? "" : " " + i.unit())
                             .append('\n'));
+        }
+        if (StringUtils.hasText(session.getCookingInstructions())) {
+            sb.append("\n👨‍🍳 Способ приготовления:\n").append(session.getCookingInstructions()).append('\n');
         }
         if (!session.getTags().isEmpty()) {
             sb.append("\n🏷 ").append(String.join(", ", session.getTags()));

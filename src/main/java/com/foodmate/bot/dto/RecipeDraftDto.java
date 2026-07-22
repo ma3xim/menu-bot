@@ -7,6 +7,7 @@ public record RecipeDraftDto(
         String description,
         Integer cookingTimeMinutes,
         List<IngredientLineDto> ingredients,
+        String cookingInstructions,
         List<String> tags,
         String videoFileId,
         String videoFileUniqueId,

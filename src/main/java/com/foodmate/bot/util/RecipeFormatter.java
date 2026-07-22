@@ -53,6 +53,9 @@ public final class RecipeFormatter {
                 sb.append('\n');
             }
         }
+        if (StringUtils.hasText(recipe.getCookingInstructions())) {
+            sb.append("\n👨‍🍳 Способ приготовления:\n").append(recipe.getCookingInstructions()).append('\n');
+        }
         return sb.toString().trim();
     }
 

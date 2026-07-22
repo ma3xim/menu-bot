@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 008-cooking-instructions
+      author: foodmate
+      changes:
+        - addColumn:
+            tableName: recipes
+            columns:
+              - column:
+                  name: cooking_instructions
+                  type: TEXT

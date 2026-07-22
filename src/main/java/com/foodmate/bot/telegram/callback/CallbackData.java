@@ -91,4 +91,8 @@ public final class CallbackData {
     public static String settingsRemove(long telegramId) {
         return "settings:remove:" + telegramId;
     }
+
+    public static String settingsRemoveConfirm(long telegramId) {
+        return "settings:removeok:" + telegramId;
+    }
 }

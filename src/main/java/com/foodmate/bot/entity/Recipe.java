@@ -39,6 +39,9 @@ public class Recipe {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "cooking_instructions", columnDefinition = "TEXT")
+    private String cookingInstructions;
+
     @Column(name = "cooking_time_minutes")
     private Integer cookingTimeMinutes;
 

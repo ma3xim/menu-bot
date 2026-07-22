@@ -111,6 +111,7 @@ public class RecipeService {
         recipe.setName(draft.name().trim());
         recipe.setDescription(draft.description() == null ? null : draft.description().trim());
         recipe.setCookingTimeMinutes(draft.cookingTimeMinutes());
+        recipe.setCookingInstructions(blankToNull(draft.cookingInstructions()));
         recipe.setVideoFileId(blankToNull(draft.videoFileId()));
         recipe.setVideoFileUniqueId(blankToNull(draft.videoFileUniqueId()));
         recipe.setVideoKind(blankToNull(draft.videoKind()));

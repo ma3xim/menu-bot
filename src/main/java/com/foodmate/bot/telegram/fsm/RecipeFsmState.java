@@ -5,6 +5,7 @@ public enum RecipeFsmState {
     WAIT_DESCRIPTION,
     WAIT_TIME,
     WAIT_INGREDIENTS,
+    WAIT_INSTRUCTIONS,
     WAIT_TAGS,
     WAIT_VIDEO,
     CONFIRM

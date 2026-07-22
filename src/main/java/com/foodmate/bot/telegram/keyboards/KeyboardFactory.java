@@ -86,6 +86,15 @@ public final class KeyboardFactory {
         return new InlineKeyboardMarkup(rows);
     }
 
+    public static InlineKeyboardMarkup confirmRemoveAccess(long telegramId) {
+        return new InlineKeyboardMarkup(List.of(
+                row(
+                        btn("Да, отключить", CallbackData.settingsRemoveConfirm(telegramId)),
+                        btn("Отмена", CallbackData.SETTINGS)
+                )
+        ));
+    }
+
     public static InlineKeyboardMarkup recipeReviews(long recipeId, int page, int totalPages) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
         List<InlineKeyboardButton> nav = new ArrayList<>();
