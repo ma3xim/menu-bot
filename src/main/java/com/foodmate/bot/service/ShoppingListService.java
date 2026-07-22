@@ -43,9 +43,28 @@ public class ShoppingListService {
 
         StringBuilder sb = new StringBuilder("🛒 Список покупок:\n\n");
         byName.forEach((name, group) -> {
+            if (group.size() == 1) {
+                ShoppingListItem item = group.get(0);
+                sb.append("• ").append(capitalize(name));
+                String amount = formatAmount(item);
+                if (StringUtils.hasText(amount)) {
+                    sb.append(" — ").append(amount);
+                }
+                if (StringUtils.hasText(item.getRecipeName())) {
+                    sb.append(" (").append(item.getRecipeName()).append(')');
+                }
+                sb.append('\n');
+                return;
+            }
             sb.append("• ").append(capitalize(name)).append('\n');
             for (ShoppingListItem item : group) {
-                sb.append("   - ").append(formatAmount(item));
+                sb.append("   - ");
+                String amount = formatAmount(item);
+                if (StringUtils.hasText(amount)) {
+                    sb.append(amount);
+                } else {
+                    sb.append("—");
+                }
                 if (StringUtils.hasText(item.getRecipeName())) {
                     sb.append(" (").append(item.getRecipeName()).append(')');
                 }
@@ -184,7 +203,7 @@ public class ShoppingListService {
             }
             sb.append(item.getUnit());
         }
-        return sb.isEmpty() ? "по вкусу" : sb.toString();
+        return sb.toString();
     }
 
     private static String capitalize(String value) {
