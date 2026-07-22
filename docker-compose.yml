@@ -7,7 +7,8 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      # Host 5433 → container 5432, чтобы не пересекаться с локальным Postgres на 5432
+      - "5433:5432"
     volumes:
       - foodmate_pg_data:/var/lib/postgresql/data
     healthcheck:

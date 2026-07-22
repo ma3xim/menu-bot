@@ -97,9 +97,9 @@ mvn spring-boot:run
 Подключение из pgAdmin / DBeaver / IDEA:
 
 - Host: `localhost`
-- Port: `5432`
+- Port: **`5433`** (Docker; локальный Postgres обычно на `5432`)
 - Database: `menu_bot`
-- User / password: как в `.env`
+- User / password: `postgres` / `postgres`
 
 Или из терминала:
 
