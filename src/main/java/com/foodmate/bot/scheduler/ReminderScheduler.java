@@ -16,7 +16,7 @@ public class ReminderScheduler {
     private final BotProperties botProperties;
     private final TelegramSender telegramSender;
 
-    @Scheduled(cron = "${bot.reminder.cron:0 0 10 * * *}", zone = "${bot.reminder.timezone:Asia/Vladivostok}")
+    @Scheduled(cron = "${bot.reminder.cron:0 0 10 * * *}", zone = "${bot.reminder.timezone:Asia/Novosibirsk}")
     public void sendDailyReminder() {
         if (!botProperties.getReminder().isEnabled()) {
             return;

@@ -1,5 +1,6 @@
 package com.foodmate.bot.telegram;
 
+import com.foodmate.bot.config.BotProperties;
 import com.foodmate.bot.dto.IngredientLineDto;
 import com.foodmate.bot.dto.RecipeDraftDto;
 import com.foodmate.bot.entity.CookingHistory;
@@ -27,6 +28,7 @@ import com.foodmate.bot.telegram.fsm.RecipeFsmSession;
 import com.foodmate.bot.telegram.fsm.RecipeFsmState;
 import com.foodmate.bot.telegram.keyboards.KeyboardFactory;
 import com.foodmate.bot.util.RecipeFormatter;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -48,8 +50,7 @@ import org.telegram.telegrambots.meta.api.objects.message.Message;
 public class UpdateRouter {
 
     private static final int PAGE_SIZE = 5;
-    private static final DateTimeFormatter HISTORY_FMT =
-            DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm").withZone(ZoneId.systemDefault());
+    private static final DateTimeFormatter HISTORY_PATTERN = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
 
     private final AccessService accessService;
     private final UserService userService;
@@ -67,6 +68,7 @@ public class UpdateRouter {
     private final PendingShoppingService pendingShoppingService;
     private final StatsService statsService;
     private final DishOfTheDayService dishOfTheDayService;
+    private final BotProperties botProperties;
 
     public void route(Update update) {
         try {
@@ -198,7 +200,7 @@ public class UpdateRouter {
             return;
         }
         if (CallbackData.DISH_RANDOM.equals(data)) {
-            showRandom(chatId, messageId, user, null, true);
+            showRandom(chatId, messageId, user, null);
             return;
         }
         if (CallbackData.RECIPE_ADD.equals(data)) {
@@ -575,16 +577,13 @@ public class UpdateRouter {
                 + detailed.getName() + "»");
     }
 
-    private void showRandom(Long chatId, Integer messageId, User user, Long tagId, boolean notifyGroup) {
+    private void showRandom(Long chatId, Integer messageId, User user, Long tagId) {
         Recipe picked = recommendationService.requireRandom(tagId);
         Recipe recipe = recipeService.getDetailed(picked.getId());
         boolean fav = favoriteService.isFavorite(user.getId(), recipe.getId());
         sender.editText(chatId, messageId, RecipeFormatter.formatCard(recipe, fav),
                 KeyboardFactory.recipeActions(recipe.getId(), fav));
         sendRecipeVideoIfAny(chatId, recipe);
-        if (notifyGroup) {
-            groupNotifyService.notify(who(user) + " выбирает на сегодня: «" + recipe.getName() + "»");
-        }
     }
 
     private void showRecipe(Long chatId, Integer messageId, User user, Long recipeId, boolean withVideo) {
@@ -619,7 +618,7 @@ public class UpdateRouter {
             if (h.getRating() != null) {
                 sb.append(" — ").append(h.getRating()).append("⭐");
             }
-            sb.append(" · ").append(HISTORY_FMT.format(h.getCookedAt())).append('\n');
+            sb.append(" · ").append(formatLocal(h.getCookedAt())).append('\n');
             if (StringUtils.hasText(h.getComment())) {
                 sb.append("  «").append(truncate(h.getComment(), 200)).append("»\n");
             }
@@ -699,10 +698,10 @@ public class UpdateRouter {
         List<String> titles = new ArrayList<>();
         history.forEach(h -> {
             ids.add(h.getRecipe().getId());
-            String title = h.getRecipe().getName() + " · " + HISTORY_FMT.format(h.getCookedAt());
+            String title = h.getRecipe().getName() + " · " + formatLocal(h.getCookedAt());
             titles.add(truncate(title, 40));
             sb.append("• ").append(h.getRecipe().getName())
-                    .append(" — ").append(HISTORY_FMT.format(h.getCookedAt()));
+                    .append(" — ").append(formatLocal(h.getCookedAt()));
             if (h.getRating() != null) {
                 sb.append(" ⭐").append(h.getRating());
             }
@@ -775,6 +774,10 @@ public class UpdateRouter {
             return Integer.parseInt(suffix.substring(1));
         }
         return 0;
+    }
+
+    private String formatLocal(Instant instant) {
+        return HISTORY_PATTERN.withZone(ZoneId.of(botProperties.getTimezone())).format(instant);
     }
 
     private static String displayName(Message message) {

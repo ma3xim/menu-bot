@@ -29,6 +29,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/menu_bot
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      TZ: Asia/Novosibirsk
+      BOT_TZ: Asia/Novosibirsk
     restart: unless-stopped
 
 volumes:

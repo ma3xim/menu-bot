@@ -13,7 +13,7 @@ public class DatabaseBackupScheduler {
 
     private final DatabaseBackupService databaseBackupService;
 
-    @Scheduled(cron = "${bot.backup.cron:0 0 3 * * SUN}", zone = "${bot.backup.timezone:Asia/Vladivostok}")
+    @Scheduled(cron = "${bot.backup.cron:0 0 3 * * SUN}", zone = "${bot.backup.timezone:Asia/Novosibirsk}")
     public void weeklyBackup() {
         log.info("Starting weekly database backup");
         databaseBackupService.createAndSendWeeklyBackup();

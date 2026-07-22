@@ -70,7 +70,8 @@ mvn spring-boot:run
 | `BOT_NOTIFY_CHAT_ID` | ID группы для уведомлений и «блюда дня» (например `-100…`) |
 | `BOT_NOTIFY_THREAD_ID` | Опционально: ID темы форума. Если не задан — запоминается после первого сообщения боту в теме |
 | `BOT_BACKUP_ENABLED` | Еженедельный дамп БД в группу (`true`/`false`, по умолчанию `true`) |
-| `BOT_BACKUP_CRON` / `BOT_BACKUP_TZ` | Когда слать дамп (по умолчанию воскресенье 03:00, `Asia/Vladivostok`) |
+| `BOT_TZ` | Часовой пояс отображения и кронов (по умолчанию `Asia/Novosibirsk`) |
+| `BOT_BACKUP_CRON` / `BOT_BACKUP_TZ` | Когда слать дамп (по умолчанию воскресенье 03:00, `Asia/Novosibirsk`) |
 
 ### Бэкап БД
 

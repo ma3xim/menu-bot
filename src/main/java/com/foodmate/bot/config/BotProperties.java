@@ -16,6 +16,8 @@ public class BotProperties {
     private Long notifyChatId;
     /** Forum topic id inside the group. Optional — learned from group messages. */
     private Integer notifyThreadId;
+    /** Display / schedule timezone (Novosibirsk = MSK+4). */
+    private String timezone = "Asia/Novosibirsk";
     private Reminder reminder = new Reminder();
     private Backup backup = new Backup();
 
@@ -23,7 +25,7 @@ public class BotProperties {
     public static class Reminder {
         private boolean enabled = true;
         private String cron = "0 0 10 * * *";
-        private String timezone = "Asia/Vladivostok";
+        private String timezone = "Asia/Novosibirsk";
     }
 
     @Data
@@ -31,6 +33,6 @@ public class BotProperties {
         private boolean enabled = true;
         /** Default: every Sunday at 03:00 */
         private String cron = "0 0 3 * * SUN";
-        private String timezone = "Asia/Vladivostok";
+        private String timezone = "Asia/Novosibirsk";
     }
 }

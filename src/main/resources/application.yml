@@ -23,14 +23,15 @@ bot:
   token: ${BOT_TOKEN:CHANGE_ME}
   whitelist-ids: ${BOT_WHITELIST_IDS:}
   recent-days: ${BOT_RECENT_DAYS:3}
+  timezone: ${BOT_TZ:Asia/Novosibirsk}
   reminder:
     enabled: ${BOT_REMINDER_ENABLED:true}
     cron: ${BOT_REMINDER_CRON:0 0 10 * * *}
-    timezone: ${BOT_REMINDER_TZ:Asia/Vladivostok}
+    timezone: ${BOT_REMINDER_TZ:Asia/Novosibirsk}
   backup:
     enabled: ${BOT_BACKUP_ENABLED:true}
     cron: ${BOT_BACKUP_CRON:0 0 3 * * SUN}
-    timezone: ${BOT_BACKUP_TZ:Asia/Vladivostok}
+    timezone: ${BOT_BACKUP_TZ:Asia/Novosibirsk}
 
 logging:
   level:
