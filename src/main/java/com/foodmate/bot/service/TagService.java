@@ -14,14 +14,20 @@ public class TagService {
 
     private final TagRepository tagRepository;
 
-    @Transactional(readOnly = true)
-    public List<Tag> findAll() {
-        return tagRepository.findAllByOrderByNameAsc();
+    @Transactional
+    public List<Tag> findAllUsed() {
+        tagRepository.deleteUnused();
+        return tagRepository.findAllUsedByOrderByNameAsc();
     }
 
     @Transactional(readOnly = true)
     public Tag requireById(Long id) {
         return tagRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Тег не найден"));
+    }
+
+    @Transactional
+    public void deleteUnused() {
+        tagRepository.deleteUnused();
     }
 }

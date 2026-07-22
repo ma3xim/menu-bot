@@ -14,6 +14,8 @@ public final class CallbackData {
     public static final String SHOP_ALL = "shop:all";
     public static final String SHOP_CLEAR = "shop:clear";
     public static final String SHOP_CLEAR_OK = "shop:clearok";
+    public static final String SHOP_MANUAL_ADD = "shop:manual";
+    public static final String SHOP_EDIT = "shop:edit";
     public static final String STATS = "stats:show";
     public static final String ADD_CONFIRM = "add:confirm";
     public static final String ADD_CANCEL = "add:cancel";

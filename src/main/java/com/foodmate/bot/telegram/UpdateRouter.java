@@ -64,6 +64,7 @@ public class UpdateRouter {
     private final UpdateContext updateContext;
     private final GroupNotifyService groupNotifyService;
     private final PendingCommentService pendingCommentService;
+    private final PendingShoppingService pendingShoppingService;
     private final StatsService statsService;
     private final DishOfTheDayService dishOfTheDayService;
 
@@ -121,23 +122,34 @@ public class UpdateRouter {
             String text = message.getText().trim();
             if (text.startsWith("/start")) {
                 fsmService.clear(telegramId);
+                pendingCommentService.clear(telegramId);
+                pendingShoppingService.clear(telegramId);
                 sender.sendText(chatId, "Привет! Я FoodMate — помогу выбрать блюдо на день.", KeyboardFactory.mainMenu());
                 return;
             }
             if (text.startsWith("/menu")) {
                 fsmService.clear(telegramId);
+                pendingCommentService.clear(telegramId);
+                pendingShoppingService.clear(telegramId);
                 sender.sendText(chatId, "Главное меню:", KeyboardFactory.mainMenu());
                 return;
             }
             if (text.startsWith("/cancel")) {
                 fsmService.clear(telegramId);
                 pendingCommentService.clear(telegramId);
+                pendingShoppingService.clear(telegramId);
                 sender.sendText(chatId, "Отменено.", KeyboardFactory.mainMenu());
                 return;
             }
 
             if (pendingCommentService.getHistoryId(telegramId).isPresent()) {
                 handleCommentInput(chatId, user, text);
+                return;
+            }
+
+            var shoppingMode = pendingShoppingService.getMode(telegramId);
+            if (shoppingMode.isPresent()) {
+                handleShoppingInput(chatId, user, shoppingMode.get(), text);
                 return;
             }
 
@@ -180,6 +192,8 @@ public class UpdateRouter {
 
         if (CallbackData.MENU_MAIN.equals(data)) {
             fsmService.clear(telegramId);
+            pendingCommentService.clear(telegramId);
+            pendingShoppingService.clear(telegramId);
             sender.editText(chatId, messageId, "Главное меню:", KeyboardFactory.mainMenu());
             return;
         }
@@ -218,7 +232,7 @@ public class UpdateRouter {
             return;
         }
         if (CallbackData.FILTER_TAGS.equals(data)) {
-            List<Tag> tags = tagService.findAll();
+            List<Tag> tags = tagService.findAllUsed();
             if (tags.isEmpty()) {
                 sender.editText(chatId, messageId, "Тегов пока нет.", KeyboardFactory.backToMenu());
             } else {
@@ -249,16 +263,45 @@ public class UpdateRouter {
             return;
         }
         if (CallbackData.SHOP_ALL.equals(data)) {
+            pendingShoppingService.clear(telegramId);
             String text = shoppingListService.formatCurrentList();
             boolean hasItems = shoppingListService.count() > 0;
             sender.editText(chatId, messageId, text, KeyboardFactory.shoppingList(hasItems));
             return;
         }
+        if (CallbackData.SHOP_MANUAL_ADD.equals(data)) {
+            pendingShoppingService.startAdd(telegramId);
+            sender.editText(chatId, messageId,
+                    "Напиши позиции для добавления — каждая с новой строки.\n"
+                            + "Формат: название или название | кол-во | единица\n\n"
+                            + "Пример:\nмолоко | 1 | л\nхлеб\nяйца | 10 | шт\n\n"
+                            + "Отмена: /cancel",
+                    KeyboardFactory.backToMenu());
+            return;
+        }
+        if (CallbackData.SHOP_EDIT.equals(data)) {
+            pendingShoppingService.startEdit(telegramId);
+            String current = shoppingListService.formatEditableText();
+            StringBuilder prompt = new StringBuilder();
+            prompt.append("Пришли новый список целиком — он заменит текущий.\n")
+                    .append("Формат: название или название | кол-во | единица\n")
+                    .append("«-» очистит список.\n\n");
+            if (StringUtils.hasText(current)) {
+                prompt.append("Сейчас:\n").append(current).append("\n\n");
+            } else {
+                prompt.append("Сейчас список пуст.\n\n");
+            }
+            prompt.append("Отмена: /cancel");
+            sender.editText(chatId, messageId, prompt.toString(), KeyboardFactory.backToMenu());
+            return;
+        }
         if (CallbackData.SHOP_CLEAR.equals(data)) {
+            pendingShoppingService.clear(telegramId);
             sender.editText(chatId, messageId, "Очистить весь список покупок?", KeyboardFactory.confirmClearShopping());
             return;
         }
         if (CallbackData.SHOP_CLEAR_OK.equals(data)) {
+            pendingShoppingService.clear(telegramId);
             int removed = shoppingListService.clearAll();
             sender.editText(chatId, messageId,
                     "Список очищен (удалено позиций: " + removed + ").",
@@ -366,6 +409,29 @@ public class UpdateRouter {
         Recipe recipe = recipeService.getDetailed(history.getRecipe().getId());
         sender.sendText(chatId, "Комментарий сохранён.", KeyboardFactory.mainMenu());
         groupNotifyService.notify(who(user) + " оставил(а) отзыв к «" + recipe.getName() + "»: " + truncate(text.trim(), 120));
+    }
+
+    private void handleShoppingInput(Long chatId, User user, PendingShoppingService.Mode mode, String text) {
+        pendingShoppingService.clear(user.getTelegramId());
+        if (mode == PendingShoppingService.Mode.ADD) {
+            int added = shoppingListService.addManual(text, user.getTelegramId());
+            long total = shoppingListService.count();
+            sender.sendText(chatId, shoppingListService.formatCurrentList(),
+                    KeyboardFactory.shoppingList(total > 0));
+            groupNotifyService.notify(who(user) + " добавил(а) в покупки " + added
+                    + " поз. вручную (всего " + total + ")");
+            return;
+        }
+
+        String payload = "-".equals(text.trim()) ? "" : text;
+        int total = shoppingListService.replaceFromText(payload, user.getTelegramId());
+        sender.sendText(chatId, shoppingListService.formatCurrentList(),
+                KeyboardFactory.shoppingList(total > 0));
+        if (total == 0) {
+            groupNotifyService.notify(who(user) + " очистил(а) список покупок (редактирование)");
+        } else {
+            groupNotifyService.notify(who(user) + " обновил(а) список покупок вручную (" + total + " поз.)");
+        }
     }
 
     private void handleFsmInput(Long chatId, User user, RecipeFsmSession session, String text) {
@@ -555,7 +621,7 @@ public class UpdateRouter {
         Page<Recipe> recipes = recipeService.findByTag(tagId, page, PAGE_SIZE);
         if (recipes.isEmpty()) {
             sender.editText(chatId, messageId, "Нет блюд с тегом «" + tag.getName() + "».",
-                    KeyboardFactory.tagsFilter(tagService.findAll()));
+                    KeyboardFactory.tagsFilter(tagService.findAllUsed()));
             return;
         }
         List<Long> ids = new ArrayList<>();

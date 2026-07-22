@@ -113,6 +113,10 @@ public final class KeyboardFactory {
 
     public static InlineKeyboardMarkup shoppingList(boolean hasItems) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
+        rows.add(row(
+                btn("➕ Добавить", CallbackData.SHOP_MANUAL_ADD),
+                btn("✏️ Редактировать", CallbackData.SHOP_EDIT)
+        ));
         if (hasItems) {
             rows.add(row(btn("🗑 Очистить список", CallbackData.SHOP_CLEAR)));
         }

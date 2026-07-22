@@ -73,7 +73,9 @@ public class RecipeService {
         recipe.clearIngredients();
         recipe.getTags().clear();
         applyDraft(recipe, draft);
-        return recipeRepository.save(recipe);
+        Recipe saved = recipeRepository.saveAndFlush(recipe);
+        tagRepository.deleteUnused();
+        return saved;
     }
 
     @Transactional
@@ -82,6 +84,8 @@ public class RecipeService {
             throw new NotFoundException("Рецепт не найден");
         }
         recipeRepository.deleteById(id);
+        recipeRepository.flush();
+        tagRepository.deleteUnused();
     }
 
     @Transactional

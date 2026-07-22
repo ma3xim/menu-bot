@@ -3,6 +3,7 @@ package com.foodmate.bot.service;
 import com.foodmate.bot.config.BotProperties;
 import com.foodmate.bot.telegram.TelegramSender;
 import com.foodmate.bot.telegram.UpdateContext;
+import jakarta.annotation.PostConstruct;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -22,31 +23,54 @@ public class GroupNotifyService {
     private final BotProperties botProperties;
     private final TelegramSender telegramSender;
     private final UpdateContext updateContext;
+    private final BotSettingsService botSettingsService;
 
     private final AtomicReference<Long> learnedChatId = new AtomicReference<>();
     private final AtomicReference<Integer> learnedThreadId = new AtomicReference<>();
+
+    @PostConstruct
+    void loadPersistedTarget() {
+        botSettingsService.getLong(BotSettingsService.NOTIFY_CHAT_ID)
+                .ifPresent(chatId -> {
+                    learnedChatId.set(chatId);
+                    log.info("Loaded persisted notify chatId={}", chatId);
+                });
+        botSettingsService.getInteger(BotSettingsService.NOTIFY_THREAD_ID)
+                .ifPresent(threadId -> {
+                    learnedThreadId.set(threadId);
+                    log.info("Loaded persisted notify threadId={}", threadId);
+                });
+    }
 
     public void rememberGroupTarget(Long chatId, Integer threadId) {
         if (chatId == null || chatId >= 0) {
             return;
         }
+        Long configuredChat = botProperties.getNotifyChatId();
+        if (configuredChat != null && !configuredChat.equals(chatId)) {
+            return;
+        }
+
         learnedChatId.set(chatId);
         if (threadId != null) {
             learnedThreadId.set(threadId);
         }
-        log.debug("Remembered group notify target chatId={}, threadId={}", chatId, threadId);
+        botSettingsService.saveNotifyTarget(chatId, threadId);
+        log.info("Persisted group notify target chatId={}, threadId={}", chatId, threadId);
     }
 
     public Optional<Target> resolveTarget() {
-        Long chatId = botProperties.getNotifyChatId() != null
-                ? botProperties.getNotifyChatId()
-                : learnedChatId.get();
+        Long chatId = firstNonNull(
+                botProperties.getNotifyChatId(),
+                learnedChatId.get()
+        );
         if (chatId == null) {
             return Optional.empty();
         }
-        Integer threadId = botProperties.getNotifyThreadId() != null
-                ? botProperties.getNotifyThreadId()
-                : learnedThreadId.get();
+        Integer threadId = firstNonNull(
+                botProperties.getNotifyThreadId(),
+                learnedThreadId.get()
+        );
         return Optional.of(new Target(chatId, threadId));
     }
 
@@ -68,5 +92,15 @@ public class GroupNotifyService {
         }
 
         telegramSender.sendTextTo(target.chatId(), target.threadId(), text, null);
+    }
+
+    @SafeVarargs
+    private static <T> T firstNonNull(T... values) {
+        for (T value : values) {
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 }
