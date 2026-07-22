@@ -4,7 +4,6 @@ public final class CallbackData {
 
     public static final String MENU_MAIN = "menu:main";
     public static final String DISH_RANDOM = "dish:random";
-    public static final String DISH_AGAIN = "dish:again";
     public static final String RECIPE_ADD = "recipe:add";
     public static final String RECIPE_LIST = "list:recipes";
     public static final String FAV_LIST = "list:fav";
@@ -53,6 +52,10 @@ public final class CallbackData {
 
     public static String recipeSkipRate(long id) {
         return "recipe:skiprate:" + id;
+    }
+
+    public static String recipeReviews(long id, int page) {
+        return "recipe:reviews:" + id + ":" + page;
     }
 
     public static String listRecipes(int page) {

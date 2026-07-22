@@ -201,10 +201,6 @@ public class UpdateRouter {
             showRandom(chatId, messageId, user, null, true);
             return;
         }
-        if (CallbackData.DISH_AGAIN.equals(data)) {
-            showRandom(chatId, messageId, user, null, false);
-            return;
-        }
         if (CallbackData.RECIPE_ADD.equals(data)) {
             fsmService.startAdd(telegramId);
             sender.editText(chatId, messageId, "Добавление рецепта.\nВведите название:", KeyboardFactory.backToMenu());
@@ -332,6 +328,13 @@ public class UpdateRouter {
         }
         if (data.startsWith("recipe:view:")) {
             showRecipe(chatId, messageId, user, Long.parseLong(data.substring("recipe:view:".length())), true);
+            return;
+        }
+        if (data.startsWith("recipe:reviews:")) {
+            String[] parts = data.split(":");
+            Long recipeId = Long.parseLong(parts[2]);
+            int page = parts.length > 3 ? Integer.parseInt(parts[3]) : 0;
+            showRecipeReviews(chatId, messageId, recipeId, page);
             return;
         }
         if (data.startsWith("recipe:cooked:")) {
@@ -592,6 +595,41 @@ public class UpdateRouter {
         if (withVideo) {
             sendRecipeVideoIfAny(chatId, recipe);
         }
+    }
+
+    private void showRecipeReviews(Long chatId, Integer messageId, Long recipeId, int page) {
+        Recipe recipe = recipeService.getDetailed(recipeId);
+        Page<CookingHistory> reviews = cookingHistoryService.listReviews(recipeId, page, PAGE_SIZE);
+        if (reviews.isEmpty()) {
+            sender.editText(chatId, messageId,
+                    "⭐ Оценки и отзывы — «" + recipe.getName() + "»\n\nПока нет оценок и отзывов.",
+                    KeyboardFactory.recipeReviews(recipeId, 0, 0));
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("⭐ Оценки и отзывы — «").append(recipe.getName()).append("»\n");
+        if (recipe.getRatingsCount() > 0) {
+            sb.append("Средняя: ").append(String.format(Locale.ROOT, "%.1f", recipe.getAverageRating()))
+                    .append(" (").append(recipe.getRatingsCount()).append(")\n");
+        }
+        sb.append('\n');
+        for (CookingHistory h : reviews) {
+            sb.append("• ").append(who(h.getUser()));
+            if (h.getRating() != null) {
+                sb.append(" — ").append(h.getRating()).append("⭐");
+            }
+            sb.append(" · ").append(HISTORY_FMT.format(h.getCookedAt())).append('\n');
+            if (StringUtils.hasText(h.getComment())) {
+                sb.append("  «").append(truncate(h.getComment(), 200)).append("»\n");
+            }
+            sb.append('\n');
+        }
+        if (reviews.getTotalPages() > 1) {
+            sb.append("Стр. ").append(page + 1).append('/').append(reviews.getTotalPages());
+        }
+        sender.editText(chatId, messageId, sb.toString().trim(),
+                KeyboardFactory.recipeReviews(recipeId, page, reviews.getTotalPages()));
     }
 
     private void sendRecipeVideoIfAny(Long chatId, Recipe recipe) {

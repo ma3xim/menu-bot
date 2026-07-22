@@ -38,7 +38,7 @@ public final class KeyboardFactory {
     public static InlineKeyboardMarkup recipeActions(long recipeId, boolean favorite) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
         rows.add(row(
-                btn("🔀 Ещё вариант", CallbackData.DISH_AGAIN),
+                btn("⭐ Оценки и отзывы", CallbackData.recipeReviews(recipeId, 0)),
                 btn("✅ Приготовили", CallbackData.recipeCooked(recipeId))
         ));
         rows.add(row(
@@ -51,6 +51,22 @@ public final class KeyboardFactory {
         ));
         rows.add(row(btn("📌 Блюдо дня", CallbackData.dishOfDay(recipeId))));
         rows.add(row(btn("⬅️ Меню", CallbackData.MENU_MAIN)));
+        return new InlineKeyboardMarkup(rows);
+    }
+
+    public static InlineKeyboardMarkup recipeReviews(long recipeId, int page, int totalPages) {
+        List<InlineKeyboardRow> rows = new ArrayList<>();
+        List<InlineKeyboardButton> nav = new ArrayList<>();
+        if (page > 0) {
+            nav.add(btn("⬅️", CallbackData.recipeReviews(recipeId, page - 1)));
+        }
+        if (page + 1 < totalPages) {
+            nav.add(btn("➡️", CallbackData.recipeReviews(recipeId, page + 1)));
+        }
+        if (!nav.isEmpty()) {
+            rows.add(new InlineKeyboardRow(nav));
+        }
+        rows.add(row(btn("⬅️ К рецепту", CallbackData.recipeView(recipeId))));
         return new InlineKeyboardMarkup(rows);
     }
 

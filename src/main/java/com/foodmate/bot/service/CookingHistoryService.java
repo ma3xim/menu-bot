@@ -55,4 +55,9 @@ public class CookingHistoryService {
     public Page<CookingHistory> list(Long userId, int page, int size) {
         return cookingHistoryRepository.findByUserIdOrderByCookedAtDesc(userId, PageRequest.of(page, size));
     }
+
+    @Transactional(readOnly = true)
+    public Page<CookingHistory> listReviews(Long recipeId, int page, int size) {
+        return cookingHistoryRepository.findReviewsByRecipeId(recipeId, PageRequest.of(page, size));
+    }
 }
