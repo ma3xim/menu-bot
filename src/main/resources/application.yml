@@ -27,6 +27,10 @@ bot:
     enabled: ${BOT_REMINDER_ENABLED:true}
     cron: ${BOT_REMINDER_CRON:0 0 10 * * *}
     timezone: ${BOT_REMINDER_TZ:Asia/Vladivostok}
+  backup:
+    enabled: ${BOT_BACKUP_ENABLED:true}
+    cron: ${BOT_BACKUP_CRON:0 0 3 * * SUN}
+    timezone: ${BOT_BACKUP_TZ:Asia/Vladivostok}
 
 logging:
   level:

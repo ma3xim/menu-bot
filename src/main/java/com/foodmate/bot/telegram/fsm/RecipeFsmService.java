@@ -25,13 +25,6 @@ public class RecipeFsmService {
         return session;
     }
 
-    public RecipeFsmSession startImport(Long telegramId) {
-        RecipeFsmSession session = new RecipeFsmSession();
-        session.setState(RecipeFsmState.WAIT_IMPORT_JSON);
-        sessions.put(telegramId, session);
-        return session;
-    }
-
     public Optional<RecipeFsmSession> get(Long telegramId) {
         return Optional.ofNullable(sessions.get(telegramId));
     }

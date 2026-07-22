@@ -7,6 +7,5 @@ public enum RecipeFsmState {
     WAIT_INGREDIENTS,
     WAIT_TAGS,
     WAIT_VIDEO,
-    CONFIRM,
-    WAIT_IMPORT_JSON
+    CONFIRM
 }

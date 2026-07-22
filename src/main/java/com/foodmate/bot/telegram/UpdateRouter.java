@@ -15,7 +15,6 @@ import com.foodmate.bot.service.CookingHistoryService;
 import com.foodmate.bot.service.DishOfTheDayService;
 import com.foodmate.bot.service.FavoriteService;
 import com.foodmate.bot.service.GroupNotifyService;
-import com.foodmate.bot.service.RecipeImportExportService;
 import com.foodmate.bot.service.RecipeService;
 import com.foodmate.bot.service.RecommendationService;
 import com.foodmate.bot.service.ShoppingListService;
@@ -60,7 +59,6 @@ public class UpdateRouter {
     private final CookingHistoryService cookingHistoryService;
     private final TagService tagService;
     private final ShoppingListService shoppingListService;
-    private final RecipeImportExportService importExportService;
     private final RecipeFsmService fsmService;
     private final TelegramSender sender;
     private final UpdateContext updateContext;
@@ -277,18 +275,6 @@ public class UpdateRouter {
                     + "» (+" + added + ", всего " + total + ")");
             return;
         }
-        if (CallbackData.EXPORT.equals(data)) {
-            String json = importExportService.exportAllAsJson();
-            sender.sendDocument(chatId, "recipes-export.json", json, "Экспорт рецептов");
-            return;
-        }
-        if (CallbackData.IMPORT.equals(data)) {
-            fsmService.startImport(telegramId);
-            sender.editText(chatId, messageId,
-                    "Пришлите JSON экспорта одним сообщением (или /cancel):",
-                    KeyboardFactory.backToMenu());
-            return;
-        }
         if (CallbackData.ADD_CANCEL.equals(data)) {
             fsmService.clear(telegramId);
             sender.editText(chatId, messageId, "Отменено.", KeyboardFactory.mainMenu());
@@ -380,13 +366,6 @@ public class UpdateRouter {
     }
 
     private void handleFsmInput(Long chatId, User user, RecipeFsmSession session, String text) {
-        if (session.getState() == RecipeFsmState.WAIT_IMPORT_JSON) {
-            int count = importExportService.importFromJson(text, user);
-            fsmService.clear(user.getTelegramId());
-            sender.sendText(chatId, "Импортировано рецептов: " + count, KeyboardFactory.mainMenu());
-            return;
-        }
-
         switch (session.getState()) {
             case WAIT_NAME -> {
                 session.setName(text);

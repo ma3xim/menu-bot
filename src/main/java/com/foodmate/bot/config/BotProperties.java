@@ -17,11 +17,20 @@ public class BotProperties {
     /** Forum topic id inside the group. Optional — learned from group messages. */
     private Integer notifyThreadId;
     private Reminder reminder = new Reminder();
+    private Backup backup = new Backup();
 
     @Data
     public static class Reminder {
         private boolean enabled = true;
         private String cron = "0 0 10 * * *";
+        private String timezone = "Asia/Vladivostok";
+    }
+
+    @Data
+    public static class Backup {
+        private boolean enabled = true;
+        /** Default: every Sunday at 03:00 */
+        private String cron = "0 0 3 * * SUN";
         private String timezone = "Asia/Vladivostok";
     }
 }

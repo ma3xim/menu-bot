@@ -32,10 +32,6 @@ public final class KeyboardFactory {
                 btn("🛒 Покупки", CallbackData.SHOP_ALL),
                 btn("📊 Статистика", CallbackData.STATS)
         ));
-        rows.add(row(
-                btn("📤 Экспорт", CallbackData.EXPORT),
-                btn("📥 Импорт", CallbackData.IMPORT)
-        ));
         return new InlineKeyboardMarkup(rows);
     }
 

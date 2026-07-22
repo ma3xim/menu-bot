@@ -15,8 +15,6 @@ public final class CallbackData {
     public static final String SHOP_CLEAR = "shop:clear";
     public static final String SHOP_CLEAR_OK = "shop:clearok";
     public static final String STATS = "stats:show";
-    public static final String EXPORT = "export:all";
-    public static final String IMPORT = "import:start";
     public static final String ADD_CONFIRM = "add:confirm";
     public static final String ADD_CANCEL = "add:cancel";
 
