@@ -35,11 +35,10 @@ public final class KeyboardFactory {
         return new InlineKeyboardMarkup(rows);
     }
 
-    public static InlineKeyboardMarkup recipeActions(long recipeId, boolean favorite, Long filterTagId) {
+    public static InlineKeyboardMarkup recipeActions(long recipeId, boolean favorite) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
-        String again = filterTagId == null ? CallbackData.DISH_AGAIN : CallbackData.filterTag(filterTagId);
         rows.add(row(
-                btn("🔀 Ещё вариант", again),
+                btn("🔀 Ещё вариант", CallbackData.DISH_AGAIN),
                 btn("✅ Приготовили", CallbackData.recipeCooked(recipeId))
         ));
         rows.add(row(

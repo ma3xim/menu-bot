@@ -18,5 +18,4 @@ public class RecipeFsmSession {
     private String videoFileId;
     private String videoFileUniqueId;
     private String videoKind;
-    private Long filterTagId;
 }

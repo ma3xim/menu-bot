@@ -1,6 +1,7 @@
 package com.foodmate.bot.service;
 
 import com.foodmate.bot.entity.Tag;
+import com.foodmate.bot.exception.NotFoundException;
 import com.foodmate.bot.repository.TagRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -16,5 +17,11 @@ public class TagService {
     @Transactional(readOnly = true)
     public List<Tag> findAll() {
         return tagRepository.findAllByOrderByNameAsc();
+    }
+
+    @Transactional(readOnly = true)
+    public Tag requireById(Long id) {
+        return tagRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Тег не найден"));
     }
 }

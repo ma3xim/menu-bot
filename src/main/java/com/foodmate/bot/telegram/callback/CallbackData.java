@@ -66,7 +66,11 @@ public final class CallbackData {
     }
 
     public static String filterTag(long tagId) {
-        return "filter:tag:" + tagId;
+        return filterTag(tagId, 0);
+    }
+
+    public static String filterTag(long tagId, int page) {
+        return "filter:tag:" + tagId + ":" + page;
     }
 
     public static String shopRecipe(long id) {

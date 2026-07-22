@@ -222,13 +222,16 @@ public class UpdateRouter {
             if (tags.isEmpty()) {
                 sender.editText(chatId, messageId, "Тегов пока нет.", KeyboardFactory.backToMenu());
             } else {
-                sender.editText(chatId, messageId, "Выберите тег для случайного блюда:", KeyboardFactory.tagsFilter(tags));
+                sender.editText(chatId, messageId, "Выберите тег:", KeyboardFactory.tagsFilter(tags));
             }
             return;
         }
         if (data.startsWith("filter:tag:")) {
-            Long tagId = Long.parseLong(data.substring("filter:tag:".length()));
-            showRandom(chatId, messageId, user, tagId, true);
+            String rest = data.substring("filter:tag:".length());
+            String[] parts = rest.split(":");
+            Long tagId = Long.parseLong(parts[0]);
+            int page = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
+            showByTag(chatId, messageId, tagId, page);
             return;
         }
         if (CallbackData.STATS.equals(data)) {
@@ -240,7 +243,7 @@ public class UpdateRouter {
             var entry = dishOfTheDayService.setDishOfTheDay(recipeId, user);
             sender.editText(chatId, messageId,
                     "📌 «" + entry.getRecipe().getName() + "» закреплено как блюдо дня в группе.",
-                    KeyboardFactory.recipeActions(recipeId, favoriteService.isFavorite(user.getId(), recipeId), null));
+                    KeyboardFactory.recipeActions(recipeId, favoriteService.isFavorite(user.getId(), recipeId)));
             // Always announce in group (pin message already there; if action was in DM, also notify)
             groupNotifyService.notify(who(user) + " выбрал(а) блюдо дня: «" + entry.getRecipe().getName() + "»");
             return;
@@ -285,7 +288,7 @@ public class UpdateRouter {
             return;
         }
         if (data.startsWith("recipe:view:")) {
-            showRecipe(chatId, messageId, user, Long.parseLong(data.substring("recipe:view:".length())), null, true);
+            showRecipe(chatId, messageId, user, Long.parseLong(data.substring("recipe:view:".length())), true);
             return;
         }
         if (data.startsWith("recipe:cooked:")) {
@@ -323,7 +326,7 @@ public class UpdateRouter {
         if (data.startsWith("recipe:fav:")) {
             Long recipeId = Long.parseLong(data.substring("recipe:fav:".length()));
             boolean nowFavorite = favoriteService.toggle(user, recipeId);
-            showRecipe(chatId, messageId, user, recipeId, null, false);
+            showRecipe(chatId, messageId, user, recipeId, false);
             sender.answerCallback(callback.getId(), nowFavorite ? "В избранном" : "Убрано");
             return;
         }
@@ -496,7 +499,7 @@ public class UpdateRouter {
         boolean fav = favoriteService.isFavorite(user.getId(), recipe.getId());
         Recipe detailed = recipeService.getDetailed(recipe.getId());
         sender.editText(chatId, messageId, RecipeFormatter.formatCard(detailed, fav),
-                KeyboardFactory.recipeActions(detailed.getId(), fav, null));
+                KeyboardFactory.recipeActions(detailed.getId(), fav));
         sendRecipeVideoIfAny(chatId, detailed);
         boolean edited = session.getEditingRecipeId() != null;
         groupNotifyService.notify(who(user) + (edited ? " обновил(а) рецепт «" : " добавил(а) новый рецепт «")
@@ -507,23 +510,19 @@ public class UpdateRouter {
         Recipe picked = recommendationService.requireRandom(tagId);
         Recipe recipe = recipeService.getDetailed(picked.getId());
         boolean fav = favoriteService.isFavorite(user.getId(), recipe.getId());
-        var session = fsmService.get(user.getTelegramId()).orElse(null);
-        if (session != null) {
-            session.setFilterTagId(tagId);
-        }
         sender.editText(chatId, messageId, RecipeFormatter.formatCard(recipe, fav),
-                KeyboardFactory.recipeActions(recipe.getId(), fav, tagId));
+                KeyboardFactory.recipeActions(recipe.getId(), fav));
         sendRecipeVideoIfAny(chatId, recipe);
         if (notifyGroup) {
             groupNotifyService.notify(who(user) + " выбирает на сегодня: «" + recipe.getName() + "»");
         }
     }
 
-    private void showRecipe(Long chatId, Integer messageId, User user, Long recipeId, Long tagId, boolean withVideo) {
+    private void showRecipe(Long chatId, Integer messageId, User user, Long recipeId, boolean withVideo) {
         Recipe recipe = recipeService.getDetailed(recipeId);
         boolean fav = favoriteService.isFavorite(user.getId(), recipe.getId());
         sender.editText(chatId, messageId, RecipeFormatter.formatCard(recipe, fav),
-                KeyboardFactory.recipeActions(recipe.getId(), fav, tagId));
+                KeyboardFactory.recipeActions(recipe.getId(), fav));
         if (withVideo) {
             sendRecipeVideoIfAny(chatId, recipe);
         }
@@ -549,6 +548,24 @@ public class UpdateRouter {
         });
         sender.editText(chatId, messageId, "Рецепты:",
                 KeyboardFactory.recipeListButtons(ids, titles, "list:recipes", page, recipes.getTotalPages()));
+    }
+
+    private void showByTag(Long chatId, Integer messageId, Long tagId, int page) {
+        Tag tag = tagService.requireById(tagId);
+        Page<Recipe> recipes = recipeService.findByTag(tagId, page, PAGE_SIZE);
+        if (recipes.isEmpty()) {
+            sender.editText(chatId, messageId, "Нет блюд с тегом «" + tag.getName() + "».",
+                    KeyboardFactory.tagsFilter(tagService.findAll()));
+            return;
+        }
+        List<Long> ids = new ArrayList<>();
+        List<String> titles = new ArrayList<>();
+        recipes.forEach(r -> {
+            ids.add(r.getId());
+            titles.add(r.getName());
+        });
+        sender.editText(chatId, messageId, "Тег «" + tag.getName() + "»:",
+                KeyboardFactory.recipeListButtons(ids, titles, "filter:tag:" + tagId, page, recipes.getTotalPages()));
     }
 
     private void showFavorites(Long chatId, Integer messageId, User user, int page) {
