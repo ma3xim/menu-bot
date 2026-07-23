@@ -45,8 +45,11 @@ public final class KeyboardFactory {
         return new InlineKeyboardMarkup(rows);
     }
 
-    public static InlineKeyboardMarkup recipeActions(long recipeId, boolean favorite, boolean superUser) {
+    public static InlineKeyboardMarkup recipeActions(long recipeId, boolean favorite, boolean superUser, boolean hasVideo) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
+        if (hasVideo) {
+            rows.add(row(btn("🎬 Показать видео", CallbackData.recipeVideo(recipeId))));
+        }
         if (superUser) {
             rows.add(row(
                     btn("⭐ Оценки и отзывы", CallbackData.recipeReviews(recipeId, 0)),

@@ -27,6 +27,10 @@ public final class CallbackData {
         return "recipe:view:" + id;
     }
 
+    public static String recipeVideo(long id) {
+        return "recipe:video:" + id;
+    }
+
     public static String recipeCooked(long id) {
         return "recipe:cooked:" + id;
     }

@@ -307,11 +307,12 @@ public class UpdateRouter {
         if (data.startsWith("dish:day:")) {
             accessService.requireCanWrite(telegramId);
             Long recipeId = Long.parseLong(data.substring("dish:day:".length()));
-            var entry = dishOfTheDayService.setDishOfTheDay(recipeId, user);
+            dishOfTheDayService.setDishOfTheDay(recipeId, user);
+            Recipe recipe = recipeService.getDetailed(recipeId);
             sender.editText(chatId, messageId,
-                    "📌 «" + entry.getRecipe().getName() + "» закреплено как блюдо дня в группе.",
-                    recipeActionsFor(user, recipeId));
-            groupNotifyService.notify(who(user) + " выбрал(а) блюдо дня: «" + entry.getRecipe().getName() + "»");
+                    "📌 «" + recipe.getName() + "» закреплено как блюдо дня в группе.",
+                    recipeActionsFor(user, recipe));
+            groupNotifyService.notify(who(user) + " выбрал(а) блюдо дня: «" + recipe.getName() + "»");
             return;
         }
         if (CallbackData.SHOP_ALL.equals(data)
@@ -393,7 +394,13 @@ public class UpdateRouter {
             return;
         }
         if (data.startsWith("recipe:view:")) {
-            showRecipe(chatId, messageId, user, Long.parseLong(data.substring("recipe:view:".length())), true);
+            showRecipe(chatId, messageId, user, Long.parseLong(data.substring("recipe:view:".length())));
+            return;
+        }
+        if (data.startsWith("recipe:video:")) {
+            Long recipeId = Long.parseLong(data.substring("recipe:video:".length()));
+            showRecipeVideo(chatId, user, recipeId);
+            sender.answerCallback(callback.getId(), "Видео");
             return;
         }
         if (data.startsWith("recipe:reviews:")) {
@@ -447,7 +454,7 @@ public class UpdateRouter {
         if (data.startsWith("recipe:fav:")) {
             Long recipeId = Long.parseLong(data.substring("recipe:fav:".length()));
             boolean nowFavorite = favoriteService.toggle(user, recipeId);
-            showRecipe(chatId, messageId, user, recipeId, false);
+            showRecipe(chatId, messageId, user, recipeId);
             sender.answerCallback(callback.getId(), nowFavorite ? "В избранном" : "Убрано");
             return;
         }
@@ -477,7 +484,7 @@ public class UpdateRouter {
             Long recipeId = session != null ? session.getEditingRecipeId() : null;
             fsmService.clear(telegramId);
             if (recipeId != null) {
-                showRecipe(chatId, messageId, user, recipeId, false);
+                showRecipe(chatId, messageId, user, recipeId);
             } else {
                 sender.editText(chatId, messageId, "Отменено.", mainMenuFor(telegramId));
             }
@@ -808,8 +815,7 @@ public class UpdateRouter {
         Recipe detailed = recipeService.getDetailed(recipeId);
         boolean fav = favoriteService.isFavorite(user.getId(), recipeId);
         String card = truncateForTelegram(RecipeFormatter.formatCard(detailed, fav));
-        sender.editText(chatId, messageId, card, recipeActionsFor(user, recipeId));
-        sendRecipeVideoIfAny(chatId, detailed);
+        sender.editText(chatId, messageId, card, recipeActionsFor(user, detailed));
         groupNotifyService.notify(who(user) + " обновил(а) рецепт «" + detailed.getName() + "»");
     }
 
@@ -899,8 +905,7 @@ public class UpdateRouter {
         boolean fav = favoriteService.isFavorite(user.getId(), recipe.getId());
         Recipe detailed = recipeService.getDetailed(recipe.getId());
         sender.editText(chatId, messageId, RecipeFormatter.formatCard(detailed, fav),
-                recipeActionsFor(user, detailed.getId()));
-        sendRecipeVideoIfAny(chatId, detailed);
+                recipeActionsFor(user, detailed));
         boolean edited = session.getEditingRecipeId() != null;
         groupNotifyService.notify(who(user) + (edited ? " обновил(а) рецепт «" : " добавил(а) новый рецепт «")
                 + detailed.getName() + "»");
@@ -911,18 +916,24 @@ public class UpdateRouter {
         Recipe recipe = recipeService.getDetailed(picked.getId());
         boolean fav = favoriteService.isFavorite(user.getId(), recipe.getId());
         sender.editText(chatId, messageId, RecipeFormatter.formatCard(recipe, fav),
-                recipeActionsFor(user, recipe.getId()));
-        sendRecipeVideoIfAny(chatId, recipe);
+                recipeActionsFor(user, recipe));
     }
 
-    private void showRecipe(Long chatId, Integer messageId, User user, Long recipeId, boolean withVideo) {
+    private void showRecipe(Long chatId, Integer messageId, User user, Long recipeId) {
         Recipe recipe = recipeService.getDetailed(recipeId);
         boolean fav = favoriteService.isFavorite(user.getId(), recipe.getId());
         sender.editText(chatId, messageId, RecipeFormatter.formatCard(recipe, fav),
-                recipeActionsFor(user, recipe.getId()));
-        if (withVideo) {
-            sendRecipeVideoIfAny(chatId, recipe);
+                recipeActionsFor(user, recipe));
+    }
+
+    private void showRecipeVideo(Long chatId, User user, Long recipeId) {
+        Recipe recipe = recipeService.getDetailed(recipeId);
+        if (!StringUtils.hasText(recipe.getVideoFileId())) {
+            sender.sendText(chatId, "У этого рецепта нет видео.", recipeActionsFor(user, recipe));
+            return;
         }
+        sender.sendRecipeVideo(chatId, recipe.getVideoFileId(), recipe.getVideoKind());
+        sender.sendText(chatId, "🍽 «" + recipe.getName() + "»", recipeActionsFor(user, recipe));
     }
 
     private void showRecipeReviews(Long chatId, Integer messageId, Long recipeId, int page) {
@@ -958,12 +969,6 @@ public class UpdateRouter {
         }
         sender.editText(chatId, messageId, sb.toString().trim(),
                 KeyboardFactory.recipeReviews(recipeId, page, reviews.getTotalPages()));
-    }
-
-    private void sendRecipeVideoIfAny(Long chatId, Recipe recipe) {
-        if (StringUtils.hasText(recipe.getVideoFileId())) {
-            sender.sendRecipeVideo(chatId, recipe.getVideoFileId(), recipe.getVideoKind());
-        }
     }
 
     private void showRecipes(Long chatId, Integer messageId, int page) {
@@ -1189,9 +1194,11 @@ public class UpdateRouter {
         return KeyboardFactory.mainMenu(accessService.isSuper(telegramId));
     }
 
-    private InlineKeyboardMarkup recipeActionsFor(User user, Long recipeId) {
-        boolean fav = favoriteService.isFavorite(user.getId(), recipeId);
-        return KeyboardFactory.recipeActions(recipeId, fav, accessService.isSuper(user.getTelegramId()));
+    private InlineKeyboardMarkup recipeActionsFor(User user, Recipe recipe) {
+        boolean fav = favoriteService.isFavorite(user.getId(), recipe.getId());
+        boolean hasVideo = StringUtils.hasText(recipe.getVideoFileId());
+        return KeyboardFactory.recipeActions(
+                recipe.getId(), fav, accessService.isSuper(user.getTelegramId()), hasVideo);
     }
 
     private String formatLocal(Instant instant) {
