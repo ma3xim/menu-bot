@@ -1,7 +1,6 @@
 package com.foodmate.bot.service;
 
 import com.foodmate.bot.entity.CookingHistory;
-import com.foodmate.bot.entity.DishOfTheDay;
 import com.foodmate.bot.entity.Recipe;
 import com.foodmate.bot.repository.CookingHistoryRepository;
 import com.foodmate.bot.repository.RecipeRepository;

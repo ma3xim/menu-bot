@@ -13,10 +13,6 @@ public final class KeyboardFactory {
     private KeyboardFactory() {
     }
 
-    public static InlineKeyboardMarkup mainMenu() {
-        return mainMenu(true);
-    }
-
     public static InlineKeyboardMarkup mainMenu(boolean superUser) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
         rows.add(row(btn("🎲 Случайное блюдо", CallbackData.DISH_RANDOM)));
@@ -47,10 +43,6 @@ public final class KeyboardFactory {
             rows.add(row(btn("📊 Статистика", CallbackData.STATS)));
         }
         return new InlineKeyboardMarkup(rows);
-    }
-
-    public static InlineKeyboardMarkup recipeActions(long recipeId, boolean favorite) {
-        return recipeActions(recipeId, favorite, true);
     }
 
     public static InlineKeyboardMarkup recipeActions(long recipeId, boolean favorite, boolean superUser) {
@@ -159,21 +151,6 @@ public final class KeyboardFactory {
                 btn("✅ Сохранить", CallbackData.EDIT_SAVE),
                 btn("❌ Отменить", CallbackData.EDIT_CANCEL)
         ));
-        return new InlineKeyboardMarkup(rows);
-    }
-
-    public static InlineKeyboardMarkup pagination(String prefix, int page, int totalPages) {
-        List<InlineKeyboardButton> nav = new ArrayList<>();
-        if (page > 0) {
-            nav.add(btn("⬅️", prefix + ":" + (page - 1)));
-        }
-        nav.add(btn((page + 1) + "/" + Math.max(totalPages, 1), CallbackData.MENU_MAIN));
-        if (page + 1 < totalPages) {
-            nav.add(btn("➡️", prefix + ":" + (page + 1)));
-        }
-        List<InlineKeyboardRow> rows = new ArrayList<>();
-        rows.add(new InlineKeyboardRow(nav));
-        rows.add(row(btn("⬅️ Меню", CallbackData.MENU_MAIN)));
         return new InlineKeyboardMarkup(rows);
     }
 

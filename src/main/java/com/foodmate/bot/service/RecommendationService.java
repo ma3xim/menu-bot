@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,7 +22,12 @@ public class RecommendationService {
     private final BotProperties botProperties;
 
     @Transactional(readOnly = true)
-    public Optional<Recipe> pickRandom(Long tagId) {
+    public Recipe requireRandom(Long tagId) {
+        return pickRandom(tagId)
+                .orElseThrow(() -> new BotBusinessException("Пока нет рецептов. Добавьте первый через меню."));
+    }
+
+    private Optional<Recipe> pickRandom(Long tagId) {
         Instant since = Instant.now().minus(botProperties.getRecentDays(), ChronoUnit.DAYS);
         List<Recipe> candidates = tagId == null
                 ? recipeRepository.findRecommendable(since)
@@ -30,7 +36,7 @@ public class RecommendationService {
         if (candidates.isEmpty()) {
             candidates = tagId == null
                     ? recipeRepository.findAll()
-                    : recipeRepository.findByTagId(tagId, org.springframework.data.domain.Pageable.unpaged()).getContent();
+                    : recipeRepository.findByTagId(tagId, Pageable.unpaged()).getContent();
         }
 
         if (candidates.isEmpty()) {
@@ -39,11 +45,5 @@ public class RecommendationService {
 
         Recipe picked = candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()));
         return recipeRepository.findDetailedById(picked.getId());
-    }
-
-    @Transactional(readOnly = true)
-    public Recipe requireRandom(Long tagId) {
-        return pickRandom(tagId)
-                .orElseThrow(() -> new BotBusinessException("Пока нет рецептов. Добавьте первый через меню."));
     }
 }

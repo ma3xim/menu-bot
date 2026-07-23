@@ -13,8 +13,6 @@ public interface FavoriteRecipeRepository extends JpaRepository<FavoriteRecipe, 
 
     Optional<FavoriteRecipe> findByUserIdAndRecipeId(Long userId, Long recipeId);
 
-    void deleteByUserIdAndRecipeId(Long userId, Long recipeId);
-
     @EntityGraph(attributePaths = "recipe")
     Page<FavoriteRecipe> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 }

@@ -1,7 +1,5 @@
 package com.foodmate.bot.telegram;
 
-import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -88,27 +86,6 @@ public class TelegramSender {
                     .build());
         } catch (TelegramApiException e) {
             log.warn("Failed to answer callback: {}", e.getMessage());
-        }
-    }
-
-    public void sendDocument(Long chatId, String filename, String content, String caption) {
-        try {
-            InputFile file = new InputFile(
-                    new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8)),
-                    filename
-            );
-            SendDocument.SendDocumentBuilder builder = SendDocument.builder()
-                    .chatId(chatId)
-                    .document(file)
-                    .caption(caption);
-            Integer threadId = updateContext.threadId();
-            if (threadId != null) {
-                builder.messageThreadId(threadId);
-            }
-            telegramClient.execute(builder.build());
-        } catch (TelegramApiException e) {
-            log.error("Failed to send document", e);
-            sendText(chatId, "Не удалось отправить файл: " + e.getMessage());
         }
     }
 

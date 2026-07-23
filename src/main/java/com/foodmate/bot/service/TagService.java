@@ -25,9 +25,4 @@ public class TagService {
         return tagRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Тег не найден"));
     }
-
-    @Transactional
-    public void deleteUnused() {
-        tagRepository.deleteUnused();
-    }
 }

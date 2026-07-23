@@ -13,7 +13,6 @@ import com.foodmate.bot.repository.IngredientRepository;
 import com.foodmate.bot.repository.RecipeRepository;
 import com.foodmate.bot.repository.TagRepository;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -98,13 +97,6 @@ public class RecipeService {
         recipe.setRatingsCount(count);
         recipe.setAverageRating(total / count);
         recipeRepository.save(recipe);
-    }
-
-    @Transactional(readOnly = true)
-    public List<Recipe> findAllDetailed() {
-        return recipeRepository.findAll().stream()
-                .map(r -> getDetailed(r.getId()))
-                .toList();
     }
 
     private void applyDraft(Recipe recipe, RecipeDraftDto draft) {

@@ -26,7 +26,35 @@ public class AccessService {
     }
 
     @Transactional(readOnly = true)
-    public boolean isAllowed(Long telegramId) {
+    public void requireAllowed(Long telegramId) {
+        assertAllowed(telegramId);
+    }
+
+    @Transactional(readOnly = true)
+    public void requireSuper(Long telegramId) {
+        assertAllowed(telegramId);
+        assertSuper(telegramId);
+    }
+
+    @Transactional(readOnly = true)
+    public void requireCanWrite(Long telegramId) {
+        assertAllowed(telegramId);
+        assertSuper(telegramId);
+    }
+
+    private void assertAllowed(Long telegramId) {
+        if (!isAllowed(telegramId)) {
+            throw new AccessDeniedException("Этот бот приватный. Доступ ограничен.");
+        }
+    }
+
+    private void assertSuper(Long telegramId) {
+        if (!isSuper(telegramId)) {
+            throw new AccessDeniedException("Недостаточно прав. Нужны права суперадмина.");
+        }
+    }
+
+    private boolean isAllowed(Long telegramId) {
         if (telegramId == null) {
             return false;
         }
@@ -36,22 +64,5 @@ public class AccessService {
         return userRepository.findByTelegramId(telegramId)
                 .filter(User::isActive)
                 .isPresent();
-    }
-
-    public void requireAllowed(Long telegramId) {
-        if (!isAllowed(telegramId)) {
-            throw new AccessDeniedException("Этот бот приватный. Доступ ограничен.");
-        }
-    }
-
-    public void requireSuper(Long telegramId) {
-        requireAllowed(telegramId);
-        if (!isSuper(telegramId)) {
-            throw new AccessDeniedException("Недостаточно прав. Нужны права суперадмина.");
-        }
-    }
-
-    public void requireCanWrite(Long telegramId) {
-        requireSuper(telegramId);
     }
 }

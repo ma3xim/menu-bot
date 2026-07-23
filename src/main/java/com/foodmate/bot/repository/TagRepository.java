@@ -11,8 +11,6 @@ public interface TagRepository extends JpaRepository<Tag, Long> {
 
     Optional<Tag> findByNameIgnoreCase(String name);
 
-    List<Tag> findAllByOrderByNameAsc();
-
     @Query("""
             SELECT t FROM Tag t
             WHERE EXISTS (

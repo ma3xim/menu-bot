@@ -33,8 +33,7 @@ public class BotSettingsService {
                 .map(Integer::valueOf);
     }
 
-    @Transactional
-    public void put(String key, String value) {
+    private void put(String key, String value) {
         BotSetting setting = botSettingRepository.findById(key).orElseGet(BotSetting::new);
         setting.setKey(key);
         setting.setValue(value);

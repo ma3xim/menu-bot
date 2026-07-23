@@ -46,12 +46,6 @@ public class CookingHistoryService {
     }
 
     @Transactional(readOnly = true)
-    public CookingHistory getWithRecipe(Long historyId) {
-        return cookingHistoryRepository.findById(historyId)
-                .orElseThrow(() -> new NotFoundException("Запись истории не найдена"));
-    }
-
-    @Transactional(readOnly = true)
     public Page<CookingHistory> list(Long userId, int page, int size) {
         return cookingHistoryRepository.findByUserIdOrderByCookedAtDesc(userId, PageRequest.of(page, size));
     }

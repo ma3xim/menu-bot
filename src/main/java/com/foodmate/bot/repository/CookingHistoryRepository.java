@@ -1,8 +1,6 @@
 package com.foodmate.bot.repository;
 
 import com.foodmate.bot.entity.CookingHistory;
-import java.time.Instant;
-import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -31,8 +29,4 @@ public interface CookingHistoryRepository extends JpaRepository<CookingHistory, 
     Page<CookingHistory> findReviewsByRecipeId(@Param("recipeId") Long recipeId, Pageable pageable);
 
     long countByRecipeId(Long recipeId);
-
-    List<CookingHistory> findByCookedAtAfter(Instant since);
-
-    boolean existsByUserIdAndRecipeIdAndCookedAtAfter(Long userId, Long recipeId, Instant since);
 }

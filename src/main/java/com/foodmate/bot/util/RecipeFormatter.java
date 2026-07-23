@@ -58,9 +58,4 @@ public final class RecipeFormatter {
         }
         return sb.toString().trim();
     }
-
-    public static String formatListItem(Recipe recipe) {
-        String time = recipe.getCookingTimeMinutes() == null ? "" : " (" + recipe.getCookingTimeMinutes() + " мин)";
-        return "• " + recipe.getName() + time;
-    }
 }

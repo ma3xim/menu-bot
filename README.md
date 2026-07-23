@@ -18,7 +18,7 @@ Java 17+, Spring Boot 3, Spring Data JPA, PostgreSQL, Liquibase, Telegram Long P
 - «Блюдо дня» — сообщение в группу с закреплением
 - Уведомления в семейную группу/тему
 - Еженедельный дамп БД файлом в ту же группу
-- Whitelist по Telegram ID
+- Роли: SUPER (полный доступ) и VIEWER (только просмотр)
 
 ## Быстрый старт (Docker)
 

@@ -5,9 +5,6 @@ public final class CallbackData {
     public static final String MENU_MAIN = "menu:main";
     public static final String DISH_RANDOM = "dish:random";
     public static final String RECIPE_ADD = "recipe:add";
-    public static final String RECIPE_LIST = "list:recipes";
-    public static final String FAV_LIST = "list:fav";
-    public static final String HIST_LIST = "list:hist";
     public static final String SEARCH = "search:start";
     public static final String FILTER_TAGS = "filter:tags";
     public static final String SHOP_ALL = "shop:all";
