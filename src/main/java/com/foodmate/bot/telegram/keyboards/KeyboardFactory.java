@@ -140,6 +140,28 @@ public final class KeyboardFactory {
         ));
     }
 
+    public static InlineKeyboardMarkup editHub() {
+        List<InlineKeyboardRow> rows = new ArrayList<>();
+        rows.add(row(
+                btn("Название", CallbackData.editField("name")),
+                btn("Описание", CallbackData.editField("description"))
+        ));
+        rows.add(row(
+                btn("Время", CallbackData.editField("time")),
+                btn("Ингредиенты", CallbackData.editField("ingredients"))
+        ));
+        rows.add(row(
+                btn("Способ", CallbackData.editField("instructions")),
+                btn("Теги", CallbackData.editField("tags"))
+        ));
+        rows.add(row(btn("Видео", CallbackData.editField("video"))));
+        rows.add(row(
+                btn("✅ Сохранить", CallbackData.EDIT_SAVE),
+                btn("❌ Отменить", CallbackData.EDIT_CANCEL)
+        ));
+        return new InlineKeyboardMarkup(rows);
+    }
+
     public static InlineKeyboardMarkup pagination(String prefix, int page, int totalPages) {
         List<InlineKeyboardButton> nav = new ArrayList<>();
         if (page > 0) {

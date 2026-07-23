@@ -20,6 +20,8 @@ public final class CallbackData {
     public static final String ADD_CANCEL = "add:cancel";
     public static final String SETTINGS = "settings:open";
     public static final String SETTINGS_ADD = "settings:add";
+    public static final String EDIT_SAVE = "edit:save";
+    public static final String EDIT_CANCEL = "edit:cancel";
 
     private CallbackData() {
     }
@@ -94,5 +96,9 @@ public final class CallbackData {
 
     public static String settingsRemoveConfirm(long telegramId) {
         return "settings:removeok:" + telegramId;
+    }
+
+    public static String editField(String field) {
+        return "edit:field:" + field;
     }
 }

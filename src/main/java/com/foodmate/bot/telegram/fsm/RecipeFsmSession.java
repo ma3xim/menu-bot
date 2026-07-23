@@ -10,6 +10,7 @@ public class RecipeFsmSession {
 
     private RecipeFsmState state;
     private Long editingRecipeId;
+    private EditField editField;
     private String name;
     private String description;
     private Integer cookingTimeMinutes;

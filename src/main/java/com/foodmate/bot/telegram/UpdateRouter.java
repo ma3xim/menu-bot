@@ -23,6 +23,7 @@ import com.foodmate.bot.service.StatsService;
 import com.foodmate.bot.service.TagService;
 import com.foodmate.bot.service.UserService;
 import com.foodmate.bot.telegram.callback.CallbackData;
+import com.foodmate.bot.telegram.fsm.EditField;
 import com.foodmate.bot.telegram.fsm.RecipeFsmService;
 import com.foodmate.bot.telegram.fsm.RecipeFsmSession;
 import com.foodmate.bot.telegram.fsm.RecipeFsmState;
@@ -175,14 +176,24 @@ public class UpdateRouter {
         }
 
         var sessionOpt = fsmService.get(telegramId);
-        if (sessionOpt.isPresent() && sessionOpt.get().getState() == RecipeFsmState.WAIT_VIDEO) {
-            accessService.requireCanWrite(telegramId);
-            if (attachVideoFromMessage(sessionOpt.get(), message)) {
-                goToConfirm(chatId, sessionOpt.get());
+        if (sessionOpt.isPresent()) {
+            RecipeFsmSession session = sessionOpt.get();
+            if (session.getState() == RecipeFsmState.WAIT_VIDEO
+                    || (session.getState() == RecipeFsmState.EDIT_FIELD && session.getEditField() == EditField.VIDEO)) {
+                accessService.requireCanWrite(telegramId);
+                if (attachVideoFromMessage(session, message)) {
+                    if (session.getState() == RecipeFsmState.EDIT_FIELD) {
+                        session.setState(RecipeFsmState.EDIT_HUB);
+                        session.setEditField(null);
+                        showEditHub(chatId, null, session);
+                    } else {
+                        goToConfirm(chatId, session);
+                    }
+                    return;
+                }
+                sender.sendText(chatId, "Пришлите видео (можно переслать), '-' чтобы пропустить/очистить, или «удалить».");
                 return;
             }
-            sender.sendText(chatId, "Пришлите видео (можно переслать), '-' чтобы пропустить, или «удалить» чтобы убрать видео.");
-            return;
         }
 
         sender.sendText(chatId, "Не понял команду. Откройте меню:", mainMenuFor(telegramId));
@@ -397,6 +408,7 @@ public class UpdateRouter {
                 || data.startsWith("recipe:skiprate:")
                 || data.startsWith("recipe:fav:")
                 || data.startsWith("recipe:edit:")
+                || data.startsWith("edit:")
                 || data.startsWith("recipe:del")) {
             accessService.requireCanWrite(telegramId);
         }
@@ -442,13 +454,33 @@ public class UpdateRouter {
         if (data.startsWith("recipe:edit:")) {
             Long recipeId = Long.parseLong(data.substring("recipe:edit:".length()));
             Recipe existing = recipeService.getDetailed(recipeId);
-            RecipeFsmSession session = fsmService.startEdit(telegramId, recipeId);
-            session.setVideoFileId(existing.getVideoFileId());
-            session.setVideoFileUniqueId(existing.getVideoFileUniqueId());
-            session.setVideoKind(existing.getVideoKind());
-            sender.editText(chatId, messageId,
-                    "Редактирование. Введите новое название (или /cancel):",
-                    KeyboardFactory.backToMenu());
+            RecipeFsmSession session = fsmService.startEdit(telegramId, existing);
+            showEditHub(chatId, messageId, session);
+            return;
+        }
+        if (data.startsWith("edit:field:")) {
+            accessService.requireCanWrite(telegramId);
+            RecipeFsmSession session = fsmService.get(telegramId)
+                    .orElseThrow(() -> new BotBusinessException("Нет сессии редактирования"));
+            String field = data.substring("edit:field:".length());
+            startEditField(chatId, messageId, session, field);
+            return;
+        }
+        if (CallbackData.EDIT_SAVE.equals(data)) {
+            accessService.requireCanWrite(telegramId);
+            saveEditSession(chatId, messageId, user);
+            return;
+        }
+        if (CallbackData.EDIT_CANCEL.equals(data)) {
+            accessService.requireCanWrite(telegramId);
+            RecipeFsmSession session = fsmService.get(telegramId).orElse(null);
+            Long recipeId = session != null ? session.getEditingRecipeId() : null;
+            fsmService.clear(telegramId);
+            if (recipeId != null) {
+                showRecipe(chatId, messageId, user, recipeId, false);
+            } else {
+                sender.editText(chatId, messageId, "Отменено.", mainMenuFor(telegramId));
+            }
             return;
         }
         if (data.startsWith("recipe:delok:")) {
@@ -513,22 +545,22 @@ public class UpdateRouter {
                 sender.sendText(chatId, "Введите время приготовления в минутах (или '-' ):");
             }
             case WAIT_TIME -> {
-                if (!"-".equals(text)) {
-                    try {
-                        session.setCookingTimeMinutes(Integer.parseInt(text.trim()));
-                    } catch (NumberFormatException e) {
-                        sender.sendText(chatId, "Нужно число минут или '-'");
+                if (!"-".equals(text.trim())) {
+                    Integer minutes = parseCookingMinutes(text);
+                    if (minutes == null) {
+                        sender.sendText(chatId, "Нужно число минут (например 70 или 60-80) или '-'");
                         return;
                     }
+                    session.setCookingTimeMinutes(minutes);
                 }
                 session.setState(RecipeFsmState.WAIT_INGREDIENTS);
                 sender.sendText(chatId, """
-                        Введите ингредиенты по одному в строке:
+                        Введите ингредиенты по одному в строке (можно сразу списком):
                         название | количество | единица
                         Например:
                         яйца | 3 | шт
                         молоко | 50 | мл
-                        Пустая строка с '-' — закончить список.""");
+                        '-' — закончить список.""");
             }
             case WAIT_INGREDIENTS -> {
                 if ("-".equals(text.trim())) {
@@ -538,13 +570,24 @@ public class UpdateRouter {
                             Или '-' чтобы пропустить (например, если всё есть в видео).""");
                     return;
                 }
-                IngredientLineDto line = parseIngredientLine(text);
-                if (line == null) {
-                    sender.sendText(chatId, "Формат: название | количество | единица");
+                int added = 0;
+                for (String raw : text.split("\\R")) {
+                    String line = raw.trim();
+                    if (!StringUtils.hasText(line) || "-".equals(line)) {
+                        continue;
+                    }
+                    IngredientLineDto parsed = parseIngredientLine(line);
+                    if (parsed == null) {
+                        continue;
+                    }
+                    session.getIngredients().add(parsed);
+                    added++;
+                }
+                if (added == 0) {
+                    sender.sendText(chatId, "Не распознал ингредиенты. Формат: название | количество | единица");
                     return;
                 }
-                session.getIngredients().add(line);
-                sender.sendText(chatId, "Добавлено. Ещё ингредиент или '-' для продолжения.");
+                sender.sendText(chatId, "Добавлено: " + added + ". Ещё ингредиенты или '-' для продолжения.");
             }
             case WAIT_INSTRUCTIONS -> {
                 session.setCookingInstructions("-".equals(text.trim()) ? null : text.trim());
@@ -579,11 +622,228 @@ public class UpdateRouter {
                 sender.sendText(chatId, "Нужно видео (можно переслать), '-' или «удалить».");
             }
             case CONFIRM -> sender.sendText(chatId, "Нажмите «Сохранить» или «Отмена».", KeyboardFactory.confirmAdd());
+            case EDIT_HUB -> sender.sendText(chatId, "Выберите, что изменить, кнопками ниже.\nИли «Сохранить» / «Отменить».",
+                    KeyboardFactory.editHub());
+            case EDIT_FIELD -> handleEditFieldInput(chatId, session, text);
             default -> {
                 fsmService.clear(user.getTelegramId());
                 sender.sendText(chatId, "Сессия сброшена.", mainMenuFor(user.getTelegramId()));
             }
         }
+    }
+
+    private void handleEditFieldInput(Long chatId, RecipeFsmSession session, String text) {
+        EditField field = session.getEditField();
+        if (field == null) {
+            session.setState(RecipeFsmState.EDIT_HUB);
+            showEditHub(chatId, null, session);
+            return;
+        }
+        String trimmed = text.trim();
+        switch (field) {
+            case NAME -> {
+                if ("-".equals(trimmed) || !StringUtils.hasText(trimmed)) {
+                    sender.sendText(chatId, "Название нельзя очистить. Пришлите новое название.");
+                    return;
+                }
+                session.setName(trimmed);
+            }
+            case DESCRIPTION -> session.setDescription("-".equals(trimmed) ? null : trimmed);
+            case TIME -> {
+                if ("-".equals(trimmed)) {
+                    session.setCookingTimeMinutes(null);
+                } else {
+                    Integer minutes = parseCookingMinutes(trimmed);
+                    if (minutes == null) {
+                        sender.sendText(chatId, "Нужно число минут (например 70 или 60-80) или '-'");
+                        return;
+                    }
+                    session.setCookingTimeMinutes(minutes);
+                }
+            }
+            case INGREDIENTS -> {
+                if ("-".equals(trimmed)) {
+                    session.setIngredients(new ArrayList<>());
+                } else {
+                    List<IngredientLineDto> lines = new ArrayList<>();
+                    for (String raw : text.split("\\R")) {
+                        String line = raw.trim();
+                        if (!StringUtils.hasText(line) || "-".equals(line)) {
+                            continue;
+                        }
+                        IngredientLineDto parsed = parseIngredientLine(line);
+                        if (parsed != null) {
+                            lines.add(parsed);
+                        }
+                    }
+                    if (lines.isEmpty()) {
+                        sender.sendText(chatId, "Не распознал ингредиенты. Формат: название | количество | единица");
+                        return;
+                    }
+                    session.setIngredients(lines);
+                }
+            }
+            case INSTRUCTIONS -> session.setCookingInstructions("-".equals(trimmed) ? null : trimmed);
+            case TAGS -> {
+                if ("-".equals(trimmed)) {
+                    session.setTags(new ArrayList<>());
+                } else {
+                    session.setTags(Arrays.stream(trimmed.split(","))
+                            .map(String::trim)
+                            .filter(StringUtils::hasText)
+                            .toList());
+                }
+            }
+            case VIDEO -> {
+                if ("удалить".equalsIgnoreCase(trimmed) || "-".equals(trimmed)) {
+                    session.setVideoFileId(null);
+                    session.setVideoFileUniqueId(null);
+                    session.setVideoKind(null);
+                } else {
+                    sender.sendText(chatId, "Пришлите видео файлом, или '-' / «удалить» чтобы убрать.");
+                    return;
+                }
+            }
+        }
+        session.setEditField(null);
+        session.setState(RecipeFsmState.EDIT_HUB);
+        showEditHub(chatId, null, session);
+    }
+
+    private void startEditField(Long chatId, Integer messageId, RecipeFsmSession session, String fieldKey) {
+        EditField field = switch (fieldKey) {
+            case "name" -> EditField.NAME;
+            case "description" -> EditField.DESCRIPTION;
+            case "time" -> EditField.TIME;
+            case "ingredients" -> EditField.INGREDIENTS;
+            case "instructions" -> EditField.INSTRUCTIONS;
+            case "tags" -> EditField.TAGS;
+            case "video" -> EditField.VIDEO;
+            default -> throw new BotBusinessException("Неизвестное поле");
+        };
+        session.setEditField(field);
+        session.setState(RecipeFsmState.EDIT_FIELD);
+        String prompt = buildEditFieldPrompt(session, field);
+        if (messageId != null) {
+            sender.editText(chatId, messageId, prompt, KeyboardFactory.editHub());
+        } else {
+            sender.sendText(chatId, prompt, KeyboardFactory.editHub());
+        }
+    }
+
+    private static String buildEditFieldPrompt(RecipeFsmSession session, EditField field) {
+        StringBuilder sb = new StringBuilder("Редактирование: ");
+        switch (field) {
+            case NAME -> {
+                sb.append("название\n\nСейчас:\n").append(nullToDash(session.getName()));
+                sb.append("\n\nПришлите новое название.");
+            }
+            case DESCRIPTION -> {
+                sb.append("описание\n\nСейчас:\n").append(nullToDash(session.getDescription()));
+                sb.append("\n\nПришлите новое описание или '-' чтобы очистить.");
+            }
+            case TIME -> {
+                sb.append("время\n\nСейчас:\n")
+                        .append(session.getCookingTimeMinutes() == null ? "—" : session.getCookingTimeMinutes() + " мин");
+                sb.append("\n\nПришлите минуты (например 70 или 60-80) или '-' чтобы очистить.");
+            }
+            case INGREDIENTS -> {
+                sb.append("ингредиенты\n\nСейчас:\n").append(formatIngredientsDraft(session));
+                sb.append("\n\nПришлите новый список целиком (каждая строка: название | кол-во | единица).\n'-' — очистить список.");
+            }
+            case INSTRUCTIONS -> {
+                sb.append("способ приготовления\n\nСейчас:\n").append(nullToDash(session.getCookingInstructions()));
+                sb.append("\n\nПришлите новый текст или '-' чтобы очистить.");
+            }
+            case TAGS -> {
+                sb.append("теги\n\nСейчас:\n")
+                        .append(session.getTags() == null || session.getTags().isEmpty()
+                                ? "—"
+                                : String.join(", ", session.getTags()));
+                sb.append("\n\nПришлите теги через запятую или '-' чтобы очистить.");
+            }
+            case VIDEO -> {
+                sb.append("видео\n\nСейчас: ")
+                        .append(StringUtils.hasText(session.getVideoFileId()) ? "есть видео" : "нет");
+                sb.append("\n\nПришлите новое видео, или '-' / «удалить» чтобы убрать.");
+            }
+        }
+        return truncateForTelegram(sb.toString());
+    }
+
+    private void showEditHub(Long chatId, Integer messageId, RecipeFsmSession session) {
+        String text = "✏️ Редактирование рецепта\n\n"
+                + truncateForTelegram(buildDraftPreview(session))
+                + "\n\nВыберите, что изменить:";
+        if (messageId != null) {
+            sender.editText(chatId, messageId, text, KeyboardFactory.editHub());
+        } else {
+            sender.sendText(chatId, text, KeyboardFactory.editHub());
+        }
+    }
+
+    private void saveEditSession(Long chatId, Integer messageId, User user) {
+        RecipeFsmSession session = fsmService.get(user.getTelegramId())
+                .orElseThrow(() -> new BotBusinessException("Нет сессии редактирования"));
+        if (session.getEditingRecipeId() == null) {
+            throw new BotBusinessException("Нет рецепта для сохранения");
+        }
+        if (!StringUtils.hasText(session.getName())) {
+            throw new BotBusinessException("Название обязательно");
+        }
+        RecipeDraftDto draft = new RecipeDraftDto(
+                session.getName(),
+                session.getDescription(),
+                session.getCookingTimeMinutes(),
+                session.getIngredients(),
+                session.getCookingInstructions(),
+                session.getTags(),
+                session.getVideoFileId(),
+                session.getVideoFileUniqueId(),
+                session.getVideoKind()
+        );
+        Long recipeId = session.getEditingRecipeId();
+        recipeService.update(recipeId, draft);
+        fsmService.clear(user.getTelegramId());
+        Recipe detailed = recipeService.getDetailed(recipeId);
+        boolean fav = favoriteService.isFavorite(user.getId(), recipeId);
+        String card = truncateForTelegram(RecipeFormatter.formatCard(detailed, fav));
+        sender.editText(chatId, messageId, card, recipeActionsFor(user, recipeId));
+        sendRecipeVideoIfAny(chatId, detailed);
+        groupNotifyService.notify(who(user) + " обновил(а) рецепт «" + detailed.getName() + "»");
+    }
+
+    private static String formatIngredientsDraft(RecipeFsmSession session) {
+        if (session.getIngredients() == null || session.getIngredients().isEmpty()) {
+            return "—";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (IngredientLineDto i : session.getIngredients()) {
+            sb.append("• ").append(i.name());
+            if (i.amount() != null) {
+                sb.append(" | ").append(i.amount());
+            }
+            if (i.unit() != null) {
+                sb.append(" | ").append(i.unit());
+            }
+            sb.append('\n');
+        }
+        return sb.toString().trim();
+    }
+
+    private static String nullToDash(String value) {
+        return StringUtils.hasText(value) ? value : "—";
+    }
+
+    private static String truncateForTelegram(String text) {
+        if (text == null) {
+            return "";
+        }
+        int max = 3500;
+        if (text.length() <= max) {
+            return text;
+        }
+        return text.substring(0, max) + "\n…";
     }
 
     private void goToConfirm(Long chatId, RecipeFsmSession session) {
@@ -797,13 +1057,35 @@ public class UpdateRouter {
     }
 
     private static IngredientLineDto parseIngredientLine(String text) {
-        String[] parts = Arrays.stream(text.split("\\|")).map(String::trim).toArray(String[]::new);
+        String normalized = text.trim();
+        if (normalized.endsWith(" -") || normalized.endsWith("\t-") || normalized.equals("-")) {
+            normalized = normalized.replaceAll("\\s*-\\s*$", "").trim();
+        }
+        if (!StringUtils.hasText(normalized)) {
+            return null;
+        }
+        String[] parts = Arrays.stream(normalized.split("\\|")).map(String::trim).toArray(String[]::new);
         if (parts.length == 0 || !StringUtils.hasText(parts[0])) {
             return null;
         }
-        String amount = parts.length > 1 ? parts[1] : null;
-        String unit = parts.length > 2 ? parts[2] : null;
+        String amount = parts.length > 1 && StringUtils.hasText(parts[1]) ? parts[1] : null;
+        String unit = parts.length > 2 && StringUtils.hasText(parts[2]) ? parts[2] : null;
         return new IngredientLineDto(parts[0].toLowerCase(Locale.ROOT), amount, unit);
+    }
+
+    private static Integer parseCookingMinutes(String text) {
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(\\d+)").matcher(text);
+        java.util.List<Integer> numbers = new ArrayList<>();
+        while (matcher.find()) {
+            numbers.add(Integer.parseInt(matcher.group(1)));
+        }
+        if (numbers.isEmpty()) {
+            return null;
+        }
+        if (numbers.size() >= 2) {
+            return (numbers.get(0) + numbers.get(1)) / 2;
+        }
+        return numbers.get(0);
     }
 
     private static String buildDraftPreview(RecipeFsmSession session) {

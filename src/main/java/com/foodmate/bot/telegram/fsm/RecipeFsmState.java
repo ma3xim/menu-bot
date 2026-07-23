@@ -8,5 +8,7 @@ public enum RecipeFsmState {
     WAIT_INSTRUCTIONS,
     WAIT_TAGS,
     WAIT_VIDEO,
-    CONFIRM
+    CONFIRM,
+    EDIT_HUB,
+    EDIT_FIELD
 }

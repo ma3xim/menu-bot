@@ -30,9 +30,9 @@ public class RecipeIngredient {
     @JoinColumn(name = "ingredient_id", nullable = false)
     private Ingredient ingredient;
 
-    @Column(length = 100)
+    @Column(length = 255)
     private String amount;
 
-    @Column(length = 50)
+    @Column(length = 255)
     private String unit;
 }

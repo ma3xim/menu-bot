@@ -1,0 +1,13 @@
+databaseChangeLog:
+  - changeSet:
+      id: 009-widen-ingredient-amount-unit
+      author: foodmate
+      changes:
+        - modifyDataType:
+            tableName: recipe_ingredients
+            columnName: amount
+            newDataType: VARCHAR(255)
+        - modifyDataType:
+            tableName: recipe_ingredients
+            columnName: unit
+            newDataType: VARCHAR(255)
