@@ -51,7 +51,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMa
 @Slf4j
 public class UpdateRouter {
 
-    private static final int PAGE_SIZE = 5;
+    private static final int PAGE_SIZE = 10;
     private static final DateTimeFormatter HISTORY_PATTERN = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
 
     private final AccessService accessService;
@@ -181,7 +181,7 @@ public class UpdateRouter {
             if (session.getState() == RecipeFsmState.WAIT_VIDEO
                     || (session.getState() == RecipeFsmState.EDIT_FIELD && session.getEditField() == EditField.VIDEO)) {
                 accessService.requireCanWrite(telegramId);
-                if (attachVideoFromMessage(session, message)) {
+                if (attachMediaFromMessage(session, message)) {
                     if (session.getState() == RecipeFsmState.EDIT_FIELD) {
                         session.setState(RecipeFsmState.EDIT_HUB);
                         session.setEditField(null);
@@ -191,7 +191,7 @@ public class UpdateRouter {
                     }
                     return;
                 }
-                sender.sendText(chatId, "Пришлите видео (можно переслать), '-' чтобы пропустить/очистить, или «удалить».");
+                sender.sendText(chatId, "Пришлите видео или фото (можно переслать), '-' чтобы пропустить/очистить, или «удалить».");
                 return;
             }
         }
@@ -399,8 +399,8 @@ public class UpdateRouter {
         }
         if (data.startsWith("recipe:video:")) {
             Long recipeId = Long.parseLong(data.substring("recipe:video:".length()));
-            showRecipeVideo(chatId, user, recipeId);
-            sender.answerCallback(callback.getId(), "Видео");
+            showRecipeMedia(chatId, user, recipeId);
+            sender.answerCallback(callback.getId(), "Медиа");
             return;
         }
         if (data.startsWith("recipe:reviews:")) {
@@ -574,7 +574,7 @@ public class UpdateRouter {
                     session.setState(RecipeFsmState.WAIT_INSTRUCTIONS);
                     sender.sendText(chatId, """
                             Введите способ приготовления.
-                            Или '-' чтобы пропустить (например, если всё есть в видео).""");
+                            Или '-' чтобы пропустить (например, если всё есть на фото/видео).""");
                     return;
                 }
                 int added = 0;
@@ -610,9 +610,9 @@ public class UpdateRouter {
                 }
                 session.setState(RecipeFsmState.WAIT_VIDEO);
                 sender.sendText(chatId, """
-                        Пришлите видео к рецепту (можно переслать из другого чата).
+                        Пришлите видео или фото к рецепту (можно переслать из другого чата).
                         Или '-' чтобы пропустить.
-                        Или «удалить» — убрать видео (при редактировании).""");
+                        Или «удалить» — убрать вложение (при редактировании).""");
             }
             case WAIT_VIDEO -> {
                 if ("удалить".equalsIgnoreCase(text.trim())) {
@@ -626,7 +626,7 @@ public class UpdateRouter {
                     goToConfirm(chatId, session);
                     return;
                 }
-                sender.sendText(chatId, "Нужно видео (можно переслать), '-' или «удалить».");
+                sender.sendText(chatId, "Нужно видео или фото (можно переслать), '-' или «удалить».");
             }
             case CONFIRM -> sender.sendText(chatId, "Нажмите «Сохранить» или «Отмена».", KeyboardFactory.confirmAdd());
             case EDIT_HUB -> sender.sendText(chatId, "Выберите, что изменить, кнопками ниже.\nИли «Сохранить» / «Отменить».",
@@ -707,7 +707,7 @@ public class UpdateRouter {
                     session.setVideoFileUniqueId(null);
                     session.setVideoKind(null);
                 } else {
-                    sender.sendText(chatId, "Пришлите видео файлом, или '-' / «удалить» чтобы убрать.");
+                    sender.sendText(chatId, "Пришлите видео или фото, или '-' / «удалить» чтобы убрать.");
                     return;
                 }
             }
@@ -770,9 +770,8 @@ public class UpdateRouter {
                 sb.append("\n\nПришлите теги через запятую или '-' чтобы очистить.");
             }
             case VIDEO -> {
-                sb.append("видео\n\nСейчас: ")
-                        .append(StringUtils.hasText(session.getVideoFileId()) ? "есть видео" : "нет");
-                sb.append("\n\nПришлите новое видео, или '-' / «удалить» чтобы убрать.");
+                sb.append("фото/видео\n\nСейчас: ").append(mediaStatusLabel(session.getVideoFileId(), session.getVideoKind()));
+                sb.append("\n\nПришлите новое видео или фото, или '-' / «удалить» чтобы убрать.");
             }
         }
         return truncateForTelegram(sb.toString());
@@ -857,7 +856,14 @@ public class UpdateRouter {
         sender.sendText(chatId, buildDraftPreview(session), KeyboardFactory.confirmAdd());
     }
 
-    private boolean attachVideoFromMessage(RecipeFsmSession session, Message message) {
+    private boolean attachMediaFromMessage(RecipeFsmSession session, Message message) {
+        if (message.hasPhoto() && message.getPhoto() != null && !message.getPhoto().isEmpty()) {
+            var photo = message.getPhoto().get(message.getPhoto().size() - 1);
+            session.setVideoFileId(photo.getFileId());
+            session.setVideoFileUniqueId(photo.getFileUniqueId());
+            session.setVideoKind("PHOTO");
+            return true;
+        }
         if (message.hasVideo()) {
             session.setVideoFileId(message.getVideo().getFileId());
             session.setVideoFileUniqueId(message.getVideo().getFileUniqueId());
@@ -870,13 +876,20 @@ public class UpdateRouter {
             session.setVideoKind("VIDEO_NOTE");
             return true;
         }
-        if (message.hasDocument()
-                && message.getDocument().getMimeType() != null
-                && message.getDocument().getMimeType().startsWith("video/")) {
-            session.setVideoFileId(message.getDocument().getFileId());
-            session.setVideoFileUniqueId(message.getDocument().getFileUniqueId());
-            session.setVideoKind("DOCUMENT");
-            return true;
+        if (message.hasDocument() && message.getDocument().getMimeType() != null) {
+            String mime = message.getDocument().getMimeType();
+            if (mime.startsWith("video/")) {
+                session.setVideoFileId(message.getDocument().getFileId());
+                session.setVideoFileUniqueId(message.getDocument().getFileUniqueId());
+                session.setVideoKind("DOCUMENT");
+                return true;
+            }
+            if (mime.startsWith("image/")) {
+                session.setVideoFileId(message.getDocument().getFileId());
+                session.setVideoFileUniqueId(message.getDocument().getFileUniqueId());
+                session.setVideoKind("IMAGE");
+                return true;
+            }
         }
         return false;
     }
@@ -926,13 +939,13 @@ public class UpdateRouter {
                 recipeActionsFor(user, recipe));
     }
 
-    private void showRecipeVideo(Long chatId, User user, Long recipeId) {
+    private void showRecipeMedia(Long chatId, User user, Long recipeId) {
         Recipe recipe = recipeService.getDetailed(recipeId);
         if (!StringUtils.hasText(recipe.getVideoFileId())) {
-            sender.sendText(chatId, "У этого рецепта нет видео.", recipeActionsFor(user, recipe));
+            sender.sendText(chatId, "У этого рецепта нет фото или видео.", recipeActionsFor(user, recipe));
             return;
         }
-        sender.sendRecipeVideo(chatId, recipe.getVideoFileId(), recipe.getVideoKind());
+        sender.sendRecipeMedia(chatId, recipe.getVideoFileId(), recipe.getVideoKind());
         sender.sendText(chatId, "🍽 «" + recipe.getName() + "»", recipeActionsFor(user, recipe));
     }
 
@@ -1117,11 +1130,30 @@ public class UpdateRouter {
             sb.append("\n🏷 ").append(String.join(", ", session.getTags()));
         }
         if (StringUtils.hasText(session.getVideoFileId())) {
-            sb.append("\n🎬 Видео прикреплено");
+            sb.append('\n').append(mediaAttachedLabel(session.getVideoKind()));
         } else {
-            sb.append("\n🎬 Без видео");
+            sb.append("\nБез фото/видео");
         }
         return sb.toString();
+    }
+
+    private static String mediaStatusLabel(String fileId, String kind) {
+        if (!StringUtils.hasText(fileId)) {
+            return "нет";
+        }
+        return isPhotoKind(kind) ? "есть фото" : "есть видео";
+    }
+
+    private static String mediaAttachedLabel(String kind) {
+        return isPhotoKind(kind) ? "🖼 Фото прикреплено" : "🎬 Видео прикреплено";
+    }
+
+    private static boolean isPhotoKind(String kind) {
+        if (kind == null) {
+            return false;
+        }
+        String normalized = kind.toUpperCase(Locale.ROOT);
+        return "PHOTO".equals(normalized) || "IMAGE".equals(normalized);
     }
 
     private static int parsePage(String data, String prefix) {
@@ -1196,9 +1228,13 @@ public class UpdateRouter {
 
     private InlineKeyboardMarkup recipeActionsFor(User user, Recipe recipe) {
         boolean fav = favoriteService.isFavorite(user.getId(), recipe.getId());
-        boolean hasVideo = StringUtils.hasText(recipe.getVideoFileId());
+        boolean hasMedia = StringUtils.hasText(recipe.getVideoFileId());
         return KeyboardFactory.recipeActions(
-                recipe.getId(), fav, accessService.isSuper(user.getTelegramId()), hasVideo);
+                recipe.getId(),
+                fav,
+                accessService.isSuper(user.getTelegramId()),
+                hasMedia,
+                isPhotoKind(recipe.getVideoKind()));
     }
 
     private String formatLocal(Instant instant) {

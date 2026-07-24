@@ -25,15 +25,16 @@ public interface RecipeRepository extends JpaRepository<Recipe, Long> {
             WHERE LOWER(r.name) LIKE LOWER(CONCAT('%', :query, '%'))
                OR LOWER(COALESCE(r.description, '')) LIKE LOWER(CONCAT('%', :query, '%'))
                OR LOWER(COALESCE(r.cookingInstructions, '')) LIKE LOWER(CONCAT('%', :query, '%'))
-            ORDER BY r.name
+            ORDER BY LOWER(r.name) ASC
             """)
     Page<Recipe> search(@Param("query") String query, Pageable pageable);
 
     @Query("""
-            SELECT DISTINCT r FROM Recipe r
-            JOIN r.tags t
-            WHERE t.id = :tagId
-            ORDER BY r.name
+            SELECT r FROM Recipe r
+            WHERE EXISTS (
+                SELECT 1 FROM r.tags t WHERE t.id = :tagId
+            )
+            ORDER BY LOWER(r.name) ASC
             """)
     Page<Recipe> findByTagId(@Param("tagId") Long tagId, Pageable pageable);
 
@@ -59,6 +60,10 @@ public interface RecipeRepository extends JpaRepository<Recipe, Long> {
             """)
     List<Recipe> findRecommendableByTag(@Param("tagId") Long tagId, @Param("since") Instant since);
 
+    @Query("""
+            SELECT r FROM Recipe r
+            ORDER BY LOWER(r.name) ASC
+            """)
     Page<Recipe> findAllByOrderByNameAsc(Pageable pageable);
 
     @Query("""

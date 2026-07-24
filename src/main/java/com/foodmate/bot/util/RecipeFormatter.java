@@ -28,7 +28,12 @@ public final class RecipeFormatter {
             sb.append("\n❤ В избранном");
         }
         if (StringUtils.hasText(recipe.getVideoFileId())) {
-            sb.append("\n🎬 Есть видео");
+            String kind = recipe.getVideoKind() == null ? "" : recipe.getVideoKind().toUpperCase();
+            if ("PHOTO".equals(kind) || "IMAGE".equals(kind)) {
+                sb.append("\n🖼 Есть фото");
+            } else {
+                sb.append("\n🎬 Есть видео");
+            }
         }
         if (recipe.getTags() != null && !recipe.getTags().isEmpty()) {
             String tags = recipe.getTags().stream().map(Tag::getName).sorted().collect(Collectors.joining(", "));

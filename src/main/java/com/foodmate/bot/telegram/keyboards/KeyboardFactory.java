@@ -45,10 +45,12 @@ public final class KeyboardFactory {
         return new InlineKeyboardMarkup(rows);
     }
 
-    public static InlineKeyboardMarkup recipeActions(long recipeId, boolean favorite, boolean superUser, boolean hasVideo) {
+    public static InlineKeyboardMarkup recipeActions(
+            long recipeId, boolean favorite, boolean superUser, boolean hasMedia, boolean photo) {
         List<InlineKeyboardRow> rows = new ArrayList<>();
-        if (hasVideo) {
-            rows.add(row(btn("🎬 Показать видео", CallbackData.recipeVideo(recipeId))));
+        if (hasMedia) {
+            String mediaBtn = photo ? "🖼 Показать фото" : "🎬 Показать видео";
+            rows.add(row(btn(mediaBtn, CallbackData.recipeVideo(recipeId))));
         }
         if (superUser) {
             rows.add(row(
@@ -149,7 +151,7 @@ public final class KeyboardFactory {
                 btn("Способ", CallbackData.editField("instructions")),
                 btn("Теги", CallbackData.editField("tags"))
         ));
-        rows.add(row(btn("Видео", CallbackData.editField("video"))));
+        rows.add(row(btn("Фото/видео", CallbackData.editField("video"))));
         rows.add(row(
                 btn("✅ Сохранить", CallbackData.EDIT_SAVE),
                 btn("❌ Отменить", CallbackData.EDIT_CANCEL)

@@ -9,6 +9,7 @@ import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.pinnedmessages.PinChatMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendDocument;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.methods.send.SendVideo;
 import org.telegram.telegrambots.meta.api.methods.send.SendVideoNote;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
@@ -106,7 +107,7 @@ public class TelegramSender {
         }
     }
 
-    public void sendRecipeVideo(Long chatId, String fileId, String kind) {
+    public void sendRecipeMedia(Long chatId, String fileId, String kind) {
         if (!StringUtils.hasText(fileId)) {
             return;
         }
@@ -114,6 +115,26 @@ public class TelegramSender {
         try {
             String normalized = kind == null ? "VIDEO" : kind.toUpperCase();
             switch (normalized) {
+                case "PHOTO" -> {
+                    SendPhoto.SendPhotoBuilder builder = SendPhoto.builder()
+                            .chatId(chatId)
+                            .photo(new InputFile(fileId))
+                            .caption("🖼 Фото рецепта");
+                    if (threadId != null) {
+                        builder.messageThreadId(threadId);
+                    }
+                    telegramClient.execute(builder.build());
+                }
+                case "IMAGE" -> {
+                    SendDocument.SendDocumentBuilder builder = SendDocument.builder()
+                            .chatId(chatId)
+                            .document(new InputFile(fileId))
+                            .caption("🖼 Фото рецепта");
+                    if (threadId != null) {
+                        builder.messageThreadId(threadId);
+                    }
+                    telegramClient.execute(builder.build());
+                }
                 case "VIDEO_NOTE" -> {
                     SendVideoNote.SendVideoNoteBuilder builder = SendVideoNote.builder()
                             .chatId(chatId)
@@ -145,8 +166,8 @@ public class TelegramSender {
                 }
             }
         } catch (TelegramApiException e) {
-            log.warn("Failed to send recipe video: {}", e.getMessage());
-            sendText(chatId, "Не удалось отправить видео рецепта (возможно, устарел file_id).");
+            log.warn("Failed to send recipe media: {}", e.getMessage());
+            sendText(chatId, "Не удалось отправить фото/видео рецепта (возможно, устарел file_id).");
         }
     }
 
